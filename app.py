@@ -133,7 +133,7 @@ def response_status_label(status: str) -> str:
 
 
 def format_response_markdown(content: str) -> str:
-    """Convert prose bullets into CommonMark while preserving code examples."""
+    """Convert only top-level line-leading bullets, preserving Markdown containers."""
     if "•" not in content:
         return content
 
@@ -164,14 +164,12 @@ def format_response_markdown(content: str) -> str:
                     fence_length = len(marker)
                     continue
 
-        if line.startswith(("    ", "\t")):
+        if line.startswith((" ", "\t")):
             continue
-        leading = line[: len(line) - len(line.lstrip(" \t"))]
-        remainder = line[len(leading) :]
-        if remainder.startswith("•"):
+        if line.startswith("•"):
             if first_bullet_index is None:
                 first_bullet_index = index
-            lines[index] = f"{leading}- {remainder[1:].lstrip()}"
+            lines[index] = f"- {line[1:].lstrip()}"
 
     if first_bullet_index and lines[first_bullet_index - 1].strip():
         lines.insert(first_bullet_index, "")

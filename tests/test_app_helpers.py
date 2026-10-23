@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 from langchain_core.messages import AIMessage
@@ -94,6 +95,67 @@ def test_format_response_markdown_preserves_four_space_indented_code():
     content = "Ví dụ:\n    • literal code bullet"
 
     assert app.format_response_markdown(content) == content
+
+
+def test_format_response_markdown_preserves_indented_and_container_bullets():
+    content = "  • nested item\n- parent item\n  • child item\n> • quoted item"
+
+    assert app.format_response_markdown(content) == content
+
+
+def test_render_message_formats_assistant_copy_and_keeps_sources_and_message_unchanged(monkeypatch):
+    rendered = {"captions": [], "markdown": [], "expanders": [], "text": []}
+    message = {
+        "role": "assistant",
+        "content": "Các điểm chính:\n• Ngày 1: Tham quan.",
+        "status": "conflict",
+        "sources": [
+            {
+                "metadata": {
+                    "tour_name": "Đà Nẵng – Hội An",
+                    "section_title": "Lịch trình",
+                    "page_start": 1,
+                    "page_end": 1,
+                    "chunk_id": "day-1",
+                },
+                "content": "Nguồn gốc",
+            }
+        ],
+    }
+    original = {**message, "sources": list(message["sources"])}
+    monkeypatch.setattr(app.st, "chat_message", lambda role: nullcontext())
+    monkeypatch.setattr(app.st, "caption", rendered["captions"].append)
+    monkeypatch.setattr(app.st, "markdown", rendered["markdown"].append)
+    monkeypatch.setattr(app.st, "expander", lambda label: _record_context(rendered["expanders"], label))
+    monkeypatch.setattr(app.st, "text", rendered["text"].append)
+    monkeypatch.setattr(app.st, "json", lambda value: None)
+
+    app._render_message(message)
+
+    assert rendered["captions"][0] == "Trạng thái: Có thông tin cần xác nhận"
+    assert rendered["markdown"] == ["Các điểm chính:\n\n- Ngày 1: Tham quan."]
+    assert message == original
+    assert rendered["expanders"] == ["Đà Nẵng – Hội An · Lịch trình · Trang 1"]
+    assert rendered["text"] == ["Nguồn gốc"]
+
+
+def test_render_message_keeps_user_markdown_unchanged(monkeypatch):
+    rendered = {"captions": [], "markdown": []}
+    content = "Lưu ý • giữ nguyên ký tự"
+    monkeypatch.setattr(app.st, "chat_message", lambda role: nullcontext())
+    monkeypatch.setattr(app.st, "caption", rendered["captions"].append)
+    monkeypatch.setattr(app.st, "markdown", rendered["markdown"].append)
+    monkeypatch.setattr(app.st, "expander", lambda label: nullcontext())
+
+    app._render_message({"role": "user", "content": content, "sources": []})
+
+    assert rendered["captions"] == []
+    assert rendered["markdown"] == [content]
+
+
+def _record_context(recorded, value):
+    recorded.append(value)
+    return nullcontext()
 
 
 def test_session_config_reuses_the_same_graph_thread_id():
