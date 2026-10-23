@@ -1,0 +1,4 @@
+# Install this repository as a package and resolve its runtime dependencies
+# from pyproject.toml. This also makes the src/ package importable on
+# Streamlit Community Cloud.
+-e .
