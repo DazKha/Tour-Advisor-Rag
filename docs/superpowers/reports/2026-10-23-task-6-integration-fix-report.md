@@ -22,4 +22,4 @@
 ## Scope and Safety
 
 - The live response was constrained to status and citation IDs; no answer body, credentials, or source text was emitted.
-- No secret values were read or printed. No source inputs were edited.
+- Runtime settings were consumed by the application for the live turn; no secret values were printed or logged. No source inputs were edited.
