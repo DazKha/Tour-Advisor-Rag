@@ -101,6 +101,26 @@ def test_numeric_grounding_metric_compares_numeric_tokens_without_guard_parser()
     assert numeric_grounding_rate(results, [["5 days and 10 million VND"]]) == 0.5
 
 
+@pytest.mark.parametrize(
+    ("answer", "context", "expected"),
+    [
+        ("12 million USD", "12 million VND", 0.0),
+        ("12 million USD", "USD 12 million", 1.0),
+        ("under 12 years", "over 12 years", 0.0),
+        ("under 12 years", "below 12 years", 1.0),
+        ("2026-10-23", "2026-10-24", 0.0),
+        ("2026-10-23", "23/10/2026", 1.0),
+        ("8.990.000 VND", "8,990,000 VND", 1.0),
+    ],
+)
+def test_numeric_grounding_requires_compatible_normalized_facts(answer, context, expected):
+    assert numeric_grounding_rate([{"answer": answer}], [[context]]) == expected
+
+
+def test_numeric_fact_units_do_not_leak_from_a_previous_value():
+    assert numeric_grounding_rate([{"answer": "12 million USD and 5 years"}], [["5 years"]]) == 0.5
+
+
 def test_dataset_has_required_distribution_and_only_real_reference_ids():
     cases = load_cases("data/eval/eval_cases.jsonl")
     chunks = [json.loads(line) for line in Path("data/processed/tour_chunks.jsonl").read_text(encoding="utf-8").splitlines()]

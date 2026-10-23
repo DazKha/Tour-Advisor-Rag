@@ -3,15 +3,111 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from statistics import quantiles
 from typing import Any
 
 _NUMBER_TOKEN = re.compile(r"(?<!\d)\d+(?:[.,]\d+)*(?!\d)")
+_ISO_DATE = re.compile(r"(?<!\d)(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)")
+_DMY_DATE = re.compile(r"(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?!\d)")
+_UNIT_ALIASES = {
+    "million": "scale:million", "millions": "scale:million", "triệu": "scale:million",
+    "billion": "scale:billion", "billions": "scale:billion", "tỷ": "scale:billion",
+    "thousand": "scale:thousand", "thousands": "scale:thousand", "nghìn": "scale:thousand", "ngàn": "scale:thousand",
+    "vnd": "currency:vnd", "đồng": "currency:vnd", "đ": "currency:vnd", "₫": "currency:vnd",
+    "usd": "currency:usd", "dollar": "currency:usd", "dollars": "currency:usd", "$": "currency:usd",
+    "eur": "currency:eur", "€": "currency:eur", "gbp": "currency:gbp", "£": "currency:gbp",
+    "jpy": "currency:jpy", "¥": "currency:jpy", "cny": "currency:cny", "rmb": "currency:cny",
+    "thb": "currency:thb", "sgd": "currency:sgd", "krw": "currency:krw",
+    "kg": "mass:kg", "kilogram": "mass:kg", "kilograms": "mass:kg",
+    "km": "length:km", "kilometer": "length:km", "kilometers": "length:km",
+    "%": "percent", "percent": "percent", "phần trăm": "percent",
+    "years old": "duration:year", "year": "duration:year", "years": "duration:year", "tuổi": "duration:year",
+    "day": "duration:day", "days": "duration:day", "ngày": "duration:day",
+    "night": "duration:night", "nights": "duration:night", "đêm": "duration:night",
+    "hour": "duration:hour", "hours": "duration:hour", "giờ": "duration:hour", "tiếng": "duration:hour",
+    "people": "people", "person": "people", "pax": "people", "người": "people", "khách": "people",
+}
+_UNIT_TOKEN = re.compile(
+    r"(?<!\w)(?:" + "|".join(re.escape(unit) for unit in sorted(_UNIT_ALIASES, key=len, reverse=True)) + r")(?!\w)",
+    re.IGNORECASE,
+)
+_COMPARATORS = {
+    "under": "<", "below": "<", "less than": "<", "fewer than": "<", "dưới": "<", "nhỏ hơn": "<",
+    "over": ">", "above": ">", "more than": ">", "greater than": ">", "trên": ">", "lớn hơn": ">",
+    "at least": ">=", "no less than": ">=", "at most": "<=", "no more than": "<=",
+}
+_COMPARATOR_TOKEN = re.compile(
+    r"(?<!\w)(?:" + "|".join(re.escape(term) for term in sorted(_COMPARATORS, key=len, reverse=True)) + r")(?!\w)",
+    re.IGNORECASE,
+)
+_UNIT_CONJUNCTION = re.compile(r"\b(?:and|or|then)\b", re.IGNORECASE)
+_SUFFIX_COMPARATORS = {
+    "or less": "<=", "or fewer": "<=", "or more": ">=", "or older": ">=",
+    "trở xuống": "<=", "trở lên": ">=", "and below": "<=", "and above": ">=",
+}
 
 
-def _numeric_tokens(text: str) -> set[str]:
-    return {match.group().replace(".", "").replace(",", "") for match in _NUMBER_TOKEN.finditer(text)}
+def _normalized_date(match: re.Match[str], *, iso: bool) -> str:
+    year, month, day = match.groups() if iso else (match.group(3), match.group(2), match.group(1))
+    try:
+        return date(int(year), int(month), int(day)).isoformat()
+    except ValueError:
+        return f"invalid:{match.group()}"
+
+
+def _numeric_facts(text: str) -> set[tuple[str, str, str]]:
+    """Extract compact value/unit/comparator facts for offline evaluation only."""
+    facts: set[tuple[str, str, str]] = set()
+    date_spans: list[tuple[int, int]] = []
+    for pattern, is_iso in ((_ISO_DATE, True), (_DMY_DATE, False)):
+        for match in pattern.finditer(text):
+            facts.add(("date", _normalized_date(match, iso=is_iso), "="))
+            date_spans.append(match.span())
+
+    number_matches = list(_NUMBER_TOKEN.finditer(text))
+    for index, match in enumerate(number_matches):
+        if any(match.start() < end and match.end() > start for start, end in date_spans):
+            continue
+        prior_boundary = max(text.rfind(mark, 0, match.start()) for mark in ".!?;,:\n")
+        prefix = text[max(prior_boundary + 1, match.start() - 48) : match.start()]
+        if index and number_matches[index - 1].end() > prior_boundary:
+            previous_number = number_matches[index - 1].group()
+            prefix = prefix[prefix.rfind(previous_number) + len(previous_number) :]
+        next_boundary = min(
+            (position for position in (text.find(mark, match.end()) for mark in ".!?;,:\n") if position >= 0),
+            default=len(text),
+        )
+        next_number = number_matches[index + 1].start() if index + 1 < len(number_matches) else len(text)
+        suffix_end = min(next_boundary, next_number, match.end() + 48)
+        suffix = text[match.end() : suffix_end]
+        conjunction = _UNIT_CONJUNCTION.search(suffix)
+        suffix_scope = suffix[: conjunction.start()] if conjunction else suffix
+        aliases = [token.casefold() for token in _UNIT_TOKEN.findall(suffix_scope)]
+        prefix_tokens = list(_UNIT_TOKEN.finditer(prefix))
+        if prefix_tokens:
+            token = prefix_tokens[-1]
+            alias = token.group().casefold()
+            if not prefix[token.end() :].strip() and _UNIT_ALIASES[alias].startswith("currency:"):
+                aliases.append(alias)
+        unit_facts = {_UNIT_ALIASES[token] for token in aliases}
+        currencies = sorted(unit.removeprefix("currency:") for unit in unit_facts if unit.startswith("currency:"))
+        scales = sorted(unit for unit in unit_facts if unit.startswith("scale:"))
+        measures = sorted(unit for unit in unit_facts if not unit.startswith(("currency:", "scale:")))
+        unit = "+".join([*currencies, *scales, *measures]) or "scalar"
+
+        comparator = "="
+        prefix_cues = list(_COMPARATOR_TOKEN.finditer(prefix))
+        if prefix_cues:
+            comparator = _COMPARATORS[prefix_cues[-1].group().casefold()]
+        else:
+            suffix_text = suffix.casefold()
+            suffix_matches = [term for term in _SUFFIX_COMPARATORS if term in suffix_text]
+            if suffix_matches:
+                comparator = _SUFFIX_COMPARATORS[max(suffix_matches, key=len)]
+        value = match.group().replace(".", "").replace(",", "")
+        facts.add((value, unit, comparator))
+    return facts
 
 
 def citation_validity(citation_ids: list[str], retrieved_ids: set[str]) -> float:
@@ -42,10 +138,10 @@ def numeric_grounding_rate(results: list[dict], contexts: list[list[str]]) -> fl
     """Return the fraction of answer numeric facts supported by retrieved text."""
     claims = grounded = 0
     for result, retrieved_contexts in zip(results, contexts, strict=True):
-        answer_numbers = _numeric_tokens(str(result.get("answer", "")))
-        context_numbers = _numeric_tokens(" ".join(retrieved_contexts))
-        claims += len(answer_numbers)
-        grounded += sum(number in context_numbers for number in answer_numbers)
+        answer_facts = _numeric_facts(str(result.get("answer", "")))
+        context_facts = _numeric_facts(" ".join(retrieved_contexts))
+        claims += len(answer_facts)
+        grounded += sum(fact in context_facts for fact in answer_facts)
     return _rate(grounded, claims) if claims else 1.0
 
 
