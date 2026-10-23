@@ -142,6 +142,42 @@ def test_age_range_propagates_shared_age_unit_to_both_endpoints():
     assert result.status == "answered"
 
 
+def test_room_count_cannot_be_claimed_as_length():
+    result = validate_answer(
+        answer("Có 2 mét.", ["inventory"]),
+        [chunk("inventory", "Có 2 phòng.")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_seat_count_cannot_be_claimed_as_room_count():
+    result = validate_answer(
+        answer("Có 3 phòng.", ["inventory"]),
+        [chunk("inventory", "Có 3 chỗ.")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_reversed_numeric_range_is_rejected():
+    result = validate_answer(
+        answer("Tour dài từ 13 đến 10 ngày.", ["duration"]),
+        [chunk("duration", "Tour dài 10-13 ngày")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_equivalent_range_wording_preserves_order():
+    result = validate_answer(
+        answer("Tour dài từ 10 đến 13 ngày.", ["duration"]),
+        [chunk("duration", "Tour dài 10-13 ngày")],
+    )
+
+    assert result.status == "answered"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),

@@ -14,27 +14,76 @@ from vietravel_rag.models import TourAnswer
 
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)")
 _DMY_DATE = re.compile(r"(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?!\d)")
-_UNIT_NAMES = (
-    "phần trăm", "years old", "kilometers", "kilometres", "centimeters", "centimetres",
-    "millimeters", "millimetres", "milliliters", "millilitres", "passengers", "kilograms",
-    "fahrenheit", "celsius", "minutes", "seconds", "months", "nights", "tickets", "people",
-    "persons", "meters", "metres", "liters", "litres", "hours", "weeks", "years", "rooms",
-    "seats", "người lớn", "nghìn", "ngàn", "ngày", "đêm", "tuần", "tháng", "năm", "tuổi",
-    "giờ", "tiếng", "phút", "giây", "khách", "người", "triệu", "tỷ", "đồng", "tấn", "lít", "pax",
-    "percent", "kilometer", "kilometre", "centimeter", "centimetre", "millimeter", "millimetre",
-    "milliliter", "millilitre", "kilogram", "minute", "second", "month", "night", "ticket",
-    "person", "meter", "metre", "liter", "litre", "hour", "week", "year", "room", "seat",
-    "fahrenheit", "celsius", "km", "cm", "mm", "ml", "kg", "gram", "grams", "ton", "usd",
-    "vnd", "eur", "gbp", "cny", "rmb", "jpy", "thb", "sgd", "krw", "aud", "cad", "php",
-    "day", "days", "g", "l", "°c", "°f", "%", "đ", "$", "€", "£", "¥",
-)
+_UNIT_ALIASES: dict[str, tuple[str, Decimal]] = {
+    "%": ("percent", Decimal(1)), "phần trăm": ("percent", Decimal(1)),
+    "percent": ("percent", Decimal(1)),
+    "đ": ("currency_vnd", Decimal(1)), "đồng": ("currency_vnd", Decimal(1)),
+    "vnd": ("currency_vnd", Decimal(1)), "$": ("currency_usd", Decimal(1)),
+    "usd": ("currency_usd", Decimal(1)), "€": ("currency_eur", Decimal(1)),
+    "eur": ("currency_eur", Decimal(1)), "£": ("currency_gbp", Decimal(1)),
+    "gbp": ("currency_gbp", Decimal(1)), "¥": ("currency_yen", Decimal(1)),
+    "jpy": ("currency_yen", Decimal(1)), "cny": ("currency_cny", Decimal(1)),
+    "rmb": ("currency_cny", Decimal(1)), "thb": ("currency_thb", Decimal(1)),
+    "sgd": ("currency_sgd", Decimal(1)), "krw": ("currency_krw", Decimal(1)),
+    "aud": ("currency_aud", Decimal(1)), "cad": ("currency_cad", Decimal(1)),
+    "php": ("currency_php", Decimal(1)), "triệu": ("currency_unspecified", Decimal(1_000_000)),
+    "tỷ": ("currency_unspecified", Decimal(1_000_000_000)),
+    "nghìn": ("currency_unspecified", Decimal(1_000)),
+    "ngàn": ("currency_unspecified", Decimal(1_000)),
+    "kg": ("mass_gram", Decimal(1_000)), "kilogram": ("mass_gram", Decimal(1_000)),
+    "kilograms": ("mass_gram", Decimal(1_000)), "g": ("mass_gram", Decimal(1)),
+    "gram": ("mass_gram", Decimal(1)), "grams": ("mass_gram", Decimal(1)),
+    "tấn": ("mass_gram", Decimal(1_000_000)), "ton": ("mass_gram", Decimal(1_000_000)),
+    "km": ("length_metre", Decimal(1_000)), "kilometer": ("length_metre", Decimal(1_000)),
+    "kilometers": ("length_metre", Decimal(1_000)), "kilometre": ("length_metre", Decimal(1_000)),
+    "kilometres": ("length_metre", Decimal(1_000)), "mét": ("length_metre", Decimal(1)),
+    "m": ("length_metre", Decimal(1)), "meter": ("length_metre", Decimal(1)),
+    "meters": ("length_metre", Decimal(1)), "metre": ("length_metre", Decimal(1)),
+    "metres": ("length_metre", Decimal(1)), "cm": ("length_metre", Decimal("0.01")),
+    "centimeter": ("length_metre", Decimal("0.01")), "centimeters": ("length_metre", Decimal("0.01")),
+    "centimetre": ("length_metre", Decimal("0.01")), "centimetres": ("length_metre", Decimal("0.01")),
+    "mm": ("length_metre", Decimal("0.001")), "millimeter": ("length_metre", Decimal("0.001")),
+    "millimeters": ("length_metre", Decimal("0.001")), "millimetre": ("length_metre", Decimal("0.001")),
+    "millimetres": ("length_metre", Decimal("0.001")), "l": ("volume_ml", Decimal(1_000)),
+    "lít": ("volume_ml", Decimal(1_000)), "liter": ("volume_ml", Decimal(1_000)),
+    "liters": ("volume_ml", Decimal(1_000)), "litre": ("volume_ml", Decimal(1_000)),
+    "litres": ("volume_ml", Decimal(1_000)), "ml": ("volume_ml", Decimal(1)),
+    "milliliter": ("volume_ml", Decimal(1)), "milliliters": ("volume_ml", Decimal(1)),
+    "millilitre": ("volume_ml", Decimal(1)), "millilitres": ("volume_ml", Decimal(1)),
+    "ngày": ("duration_day", Decimal(1)), "day": ("duration_day", Decimal(1)),
+    "days": ("duration_day", Decimal(1)), "đêm": ("duration_night", Decimal(1)),
+    "night": ("duration_night", Decimal(1)), "nights": ("duration_night", Decimal(1)),
+    "tuần": ("duration_week", Decimal(1)), "week": ("duration_week", Decimal(1)),
+    "weeks": ("duration_week", Decimal(1)), "tháng": ("duration_month", Decimal(1)),
+    "month": ("duration_month", Decimal(1)), "months": ("duration_month", Decimal(1)),
+    "năm": ("duration_year", Decimal(1)), "year": ("duration_year", Decimal(1)),
+    "years": ("duration_year", Decimal(1)), "tuổi": ("age_year", Decimal(1)),
+    "years old": ("age_year", Decimal(1)), "giờ": ("duration_hour", Decimal(1)),
+    "tiếng": ("duration_hour", Decimal(1)), "hour": ("duration_hour", Decimal(1)),
+    "hours": ("duration_hour", Decimal(1)), "phút": ("duration_minute", Decimal(1)),
+    "minute": ("duration_minute", Decimal(1)), "minutes": ("duration_minute", Decimal(1)),
+    "giây": ("duration_second", Decimal(1)), "second": ("duration_second", Decimal(1)),
+    "seconds": ("duration_second", Decimal(1)), "khách": ("people", Decimal(1)),
+    "người": ("people", Decimal(1)), "người lớn": ("people", Decimal(1)),
+    "pax": ("people", Decimal(1)), "person": ("people", Decimal(1)),
+    "persons": ("people", Decimal(1)), "people": ("people", Decimal(1)),
+    "passenger": ("people", Decimal(1)), "passengers": ("people", Decimal(1)),
+    "phòng": ("rooms", Decimal(1)), "room": ("rooms", Decimal(1)), "rooms": ("rooms", Decimal(1)),
+    "vé": ("seats", Decimal(1)), "ticket": ("seats", Decimal(1)), "tickets": ("seats", Decimal(1)),
+    "chỗ": ("seats", Decimal(1)), "seat": ("seats", Decimal(1)), "seats": ("seats", Decimal(1)),
+    "°c": ("temperature_c", Decimal(1)), "celsius": ("temperature_c", Decimal(1)),
+    "°f": ("temperature_f", Decimal(1)), "fahrenheit": ("temperature_f", Decimal(1)),
+}
+_UNIT_NAMES = tuple(sorted(_UNIT_ALIASES, key=len, reverse=True))
+_UNIT_ALTERNATION = "|".join(re.escape(unit) for unit in _UNIT_NAMES)
 _UNIT_PATTERN = re.compile(
-    r"\s*(?P<unit>" + "|".join(re.escape(unit) for unit in _UNIT_NAMES) + r")(?!\w)",
+    r"\s*(?P<unit>" + _UNIT_ALTERNATION + r")(?!\w)",
     re.IGNORECASE,
 )
 _RANGE_NUMBER = re.compile(
-    r"(?<!\d)(?P<start>\d+(?:[.,]\d+)*)(?:\s*[-–—]\s*|\s*(?:đến|tới|to)\s*(?:(?:dưới|trên|under|over|below|above)\s*)?)"
-    r"(?P<end>\d+(?:[.,]\d+)*)(?=\s*(?:" + "|".join(re.escape(unit) for unit in _UNIT_NAMES) + r")(?!\w))",
+    r"(?<!\d)(?P<start>\d+(?:[.,]\d+)*)(?P<start_unit>\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))?"
+    r"(?:\s*[-–—]\s*|\s*(?:đến|tới|to)\s*(?:(?:dưới|trên|under|over|below|above)\s*)?)"
+    r"(?P<end>\d+(?:[.,]\d+)*)(?=\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))",
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"(?<!\d)(?P<number>\d+(?:[.,]\d+)*)(?!\d)")
@@ -91,85 +140,10 @@ def _normalize_unit(unit: str | None, number_start: int, text: str) -> tuple[str
     normalized = re.sub(r"\s+", " ", (unit or "").strip().casefold())
     if not normalized and number_start > 0 and text[number_start - 1] in "$€£":
         normalized = text[number_start - 1]
-    if normalized in {"%", "phần trăm", "percent"}:
-        return "percent", Decimal(1)
-    if normalized in {"đ", "đồng", "vnd"}:
-        return "currency_vnd", Decimal(1)
-    if normalized in {"$", "usd"}:
-        return "currency_usd", Decimal(1)
-    if normalized in {"€", "eur"}:
-        return "currency_eur", Decimal(1)
-    if normalized in {"£", "gbp"}:
-        return "currency_gbp", Decimal(1)
-    if normalized in {"¥", "jpy"}:
-        return "currency_yen", Decimal(1)
-    if normalized in {"cny", "rmb"}:
-        return "currency_cny", Decimal(1)
-    if normalized == "thb":
-        return "currency_thb", Decimal(1)
-    if normalized == "sgd":
-        return "currency_sgd", Decimal(1)
-    if normalized == "krw":
-        return "currency_krw", Decimal(1)
-    if normalized == "aud":
-        return "currency_aud", Decimal(1)
-    if normalized == "cad":
-        return "currency_cad", Decimal(1)
-    if normalized == "php":
-        return "currency_php", Decimal(1)
-    if normalized == "triệu":
-        return "currency_unspecified", Decimal(1_000_000)
-    if normalized in {"tỷ"}:
-        return "currency_unspecified", Decimal(1_000_000_000)
-    if normalized in {"nghìn", "ngàn"}:
-        return "currency_unspecified", Decimal(1_000)
-    if normalized in {"kg", "kilogram", "kilograms"}:
-        return "mass_gram", Decimal(1_000)
-    if normalized in {"g", "gram", "grams"}:
-        return "mass_gram", Decimal(1)
-    if normalized in {"tấn", "ton"}:
-        return "mass_gram", Decimal(1_000_000)
-    if normalized in {"km", "kilometer", "kilometers", "kilometre", "kilometres"}:
-        return "length_metre", Decimal(1_000)
-    if normalized in {"mét", "meter", "meters", "metre", "metres"}:
-        return "length_metre", Decimal(1)
-    if normalized in {"cm", "centimeter", "centimeters", "centimetre", "centimetres"}:
-        return "length_metre", Decimal("0.01")
-    if normalized in {"mm", "millimeter", "millimeters", "millimetre", "millimetres"}:
-        return "length_metre", Decimal("0.001")
-    if normalized in {"l", "lít", "liter", "liters", "litre", "litres"}:
-        return "volume_ml", Decimal(1_000)
-    if normalized in {"ml", "milliliter", "milliliters", "millilitre", "millilitres"}:
-        return "volume_ml", Decimal(1)
-    if normalized in {"ngày", "day", "days"}:
-        return "duration_day", Decimal(1)
-    if normalized in {"đêm", "night", "nights"}:
-        return "duration_night", Decimal(1)
-    if normalized in {"tuần", "week", "weeks"}:
-        return "duration_week", Decimal(1)
-    if normalized in {"tháng", "month", "months"}:
-        return "duration_month", Decimal(1)
-    if normalized in {"năm", "year", "years"}:
-        return "age_year" if "tuổi" in text[max(0, number_start - 18) : number_start + 18].casefold() else "duration_year", Decimal(1)
-    if normalized in {"tuổi", "years old"}:
-        return "age_year", Decimal(1)
-    if normalized in {"giờ", "tiếng", "hour", "hours"}:
-        return "duration_hour", Decimal(1)
-    if normalized in {"phút", "minute", "minutes"}:
-        return "duration_minute", Decimal(1)
-    if normalized in {"giây", "second", "seconds"}:
-        return "duration_second", Decimal(1)
-    if normalized in {"khách", "người", "người lớn", "pax", "person", "persons", "people", "passenger", "passengers"}:
-        return "people", Decimal(1)
-    if normalized in {"phòng", "room", "rooms"}:
-        return "rooms", Decimal(1)
-    if normalized in {"vé", "ticket", "tickets", "chỗ", "seat", "seats"}:
-        return "seats", Decimal(1)
-    if normalized in {"°c", "celsius"}:
-        return "temperature_c", Decimal(1)
-    if normalized in {"°f", "fahrenheit"}:
-        return "temperature_f", Decimal(1)
-    return "scalar", Decimal(1)
+    if normalized == "năm":
+        unit = "age_year" if "tuổi" in text[max(0, number_start - 18) : number_start + 18].casefold() else "duration_year"
+        return unit, Decimal(1)
+    return _UNIT_ALIASES.get(normalized, ("scalar", Decimal(1)))
 
 
 def _number_facts(text: str) -> set[NumericFact]:
@@ -189,14 +163,22 @@ def _number_facts(text: str) -> set[NumericFact]:
     for match in _RANGE_NUMBER.finditer(text):
         if any(match.start() < end and match.end() > start for start, end in date_spans):
             continue
-        unit_match = _UNIT_PATTERN.match(text, match.end("end"))
-        unit_text = unit_match.group("unit") if unit_match else None
-        unit, multiplier = _normalize_unit(unit_text, match.start(), text)
-        for endpoint in ("start", "end"):
-            number = _decimal_value(match.group(endpoint))
-            if number is not None:
-                value = number * multiplier
-                facts.add(NumericFact(format(value.normalize(), "f"), unit))
+        end_unit_match = _UNIT_PATTERN.match(text, match.end("end"))
+        end_unit_text = end_unit_match.group("unit") if end_unit_match else None
+        start_unit_text = (match.group("start_unit") or "").strip() or None
+        shared_unit = end_unit_text or start_unit_text
+        start_unit, start_multiplier = _normalize_unit(start_unit_text or shared_unit, match.start(), text)
+        end_unit, end_multiplier = _normalize_unit(end_unit_text or shared_unit, match.start(), text)
+        unit = start_unit
+        if start_unit != end_unit:
+            unit = f"incompatible_range:{start_unit}:{end_unit}"
+        start = _decimal_value(match.group("start"))
+        end = _decimal_value(match.group("end"))
+        if start is not None and end is not None:
+            start_value = start * start_multiplier
+            end_value = end * end_multiplier
+            value = f"{format(start_value.normalize(), 'f')}:{format(end_value.normalize(), 'f')}"
+            facts.add(NumericFact(value, f"range:{unit}"))
         range_spans.append(match.span())
 
     for match in _NUMBER.finditer(text):
