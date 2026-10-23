@@ -9,8 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from vietravel_rag.ingestion.validation import validate_corpus  # noqa: E402
-from vietravel_rag.models import CatalogRecord, ChunkRecord  # noqa: E402
+from vietravel_rag.ingestion.validation import validate_corpus
+from vietravel_rag.models import CatalogRecord, ChunkRecord
 
 
 def main() -> int:

@@ -6,7 +6,6 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-
 _INTENTS = {
     "hỏi giá": "price", "chê giá cao": "price", "hỏi khuyến mãi": "price",
     "phân vân chọn tour": "recommend_tour", "đi cùng người lớn tuổi": "recommend_tour",

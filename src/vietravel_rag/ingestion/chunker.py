@@ -21,7 +21,7 @@ SECTION_HEADINGS = {
     ),
     "force_majeure": ("trường hợp bất khả kháng",),
 }
-_DAY = re.compile(r"^Ngày\s+(\d+)\s*:\s*(.*)$", re.I)
+_DAY = re.compile(r"^Ngày\s+(\d+)\s*:\s*(.*)$", re.IGNORECASE)
 _HEADING_ALIASES = {phrase.casefold(): kind for kind, phrases in SECTION_HEADINGS.items() for phrase in phrases}
 _ADDITIONAL_HEADINGS = {
     "visa": (
@@ -63,7 +63,7 @@ def _semantic_groups(kind: str, rows: list[tuple[int, str]]) -> list[list[tuple[
     item: list[tuple[int, str]] = []
     for row in rows:
         starts_list_item = bool(re.match(r"^[-•·]\s+", row[1]))
-        starts_subsection = bool(re.match(r"^Lưu ý khi chuyển/hủy tour\b", row[1], re.I))
+        starts_subsection = bool(re.match(r"^Lưu ý khi chuyển/hủy tour\b", row[1], re.IGNORECASE))
         if item and (starts_list_item or starts_subsection):
             items.append(item)
             item = []
@@ -143,18 +143,20 @@ def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
             flush()
             current_kind, current_title = kind, line.rstrip(":")
             continue
-        if re.match(r"^các điều kiện khi đăng ký tour", line, re.I):
+        if re.match(r"^các điều kiện khi đăng ký tour", line, re.IGNORECASE):
             flush()
             current_kind, current_title = "registration_notes", line
             continue
-        if re.match(r"^lưu ý khi chuyển/hủy tour", line, re.I):
+        if re.match(r"^lưu ý khi chuyển/hủy tour", line, re.IGNORECASE):
             # Retain registration and cancellation context together until a defined cancellation heading.
             current.append((page_no, line))
             continue
-        if re.match(r"^thông tin (?:giá|tour|chuyến bay|phương tiện)", line, re.I):
-            if current_kind not in {"tour_overview", "price"}:
-                flush()
-                current_kind, current_title = "tour_overview", line
+        if (
+            re.match(r"^thông tin (?:giá|tour|chuyến bay|phương tiện)", line, re.IGNORECASE)
+            and current_kind not in {"tour_overview", "price"}
+        ):
+            flush()
+            current_kind, current_title = "tour_overview", line
         current.append((page_no, line))
     flush()
 

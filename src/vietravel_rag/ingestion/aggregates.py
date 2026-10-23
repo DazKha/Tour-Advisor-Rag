@@ -12,7 +12,7 @@ def build_catalog(source: TourSource, chunks: list[ChunkRecord]) -> list[Catalog
     indices = [c.chunk_index for c in days]
     if indices != list(range(1, len(days) + 1)):
         raise ValueError(f"Itinerary indices are not contiguous for {source.tour_code}")
-    day_titles = [re.sub(r"^Ngày\s+\d+\s*:\s*", "", c.section_title, flags=re.I) for c in days]
+    day_titles = [re.sub(r"^Ngày\s+\d+\s*:\s*", "", c.section_title, flags=re.IGNORECASE) for c in days]
     duration = f"{len(days)} ngày {max(0, len(days) - 1)} đêm" if days else ""
     aliases = ", ".join(source.aliases)
     summary = "\n".join(part for part in [source.tour_name, duration, "Lộ trình: " + "; ".join(day_titles), "Từ khóa: " + aliases] if part)

@@ -2,8 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from vietravel_rag.ingestion.pdf_extract import _clean_page, _page_text_from_blocks, extract_pdf_pages
-
+from vietravel_rag.ingestion.pdf_extract import (
+    _clean_page,
+    _page_text_from_blocks,
+    extract_pdf_pages,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 DANANG_PDF = ROOT / "raw_data" / "Đà Nẵng - Sơn Trà - KDL Bà Nà - Cầu Vàng - Hội An - La Vang - Động Phong Nha & Thiên Đường - Huế (Khách sạn 4_ trọn tour).pdf"

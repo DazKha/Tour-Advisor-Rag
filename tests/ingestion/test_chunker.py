@@ -3,11 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from vietravel_rag.ingestion.chunker import chunk_tour
 from vietravel_rag.ingestion.aggregates import build_catalog
+from vietravel_rag.ingestion.chunker import chunk_tour
 from vietravel_rag.ingestion.pdf_extract import extract_pdf_pages
 from vietravel_rag.ingestion.sources import TOUR_SOURCES
-
 
 ROOT = Path(__file__).resolve().parents[2]
 DANANG = next(source for source in TOUR_SOURCES if source.tour_code == "danang-central-5d4n")

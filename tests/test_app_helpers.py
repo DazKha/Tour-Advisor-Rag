@@ -96,3 +96,71 @@ def test_reset_rotates_thread_id_and_clears_visible_conversation(monkeypatch):
     assert build_session_config(state.session_id) == {
         "configurable": {"thread_id": "new-session"}
     }
+
+
+def test_ensure_index_rebuilds_from_processed_jsonl_when_counts_are_stale(tmp_path, monkeypatch):
+    catalog_path = tmp_path / "catalog.jsonl"
+    chunks_path = tmp_path / "chunks.jsonl"
+    catalog_path.write_text('{"record_id":"tour-a"}\n', encoding="utf-8")
+    chunks_path.write_text('{"chunk_id":"chunk-a"}\n{"chunk_id":"chunk-b"}\n', encoding="utf-8")
+
+    class Store:
+        def __init__(self, count):
+            self._collection = type("Collection", (), {"count": lambda self: count})()
+
+    stores = iter([(Store(0), Store(0)), (Store(1), Store(2))])
+    monkeypatch.setattr(app, "_open_stores", lambda settings: next(stores))
+    rebuilt = []
+    monkeypatch.setattr(app, "build_collections", lambda settings, **kwargs: rebuilt.append(settings))
+
+    result = app.ensure_index_ready(
+        object(),
+        catalog_path=catalog_path,
+        chunks_path=chunks_path,
+        required_files=[catalog_path, chunks_path],
+    )
+
+    assert len(rebuilt) == 1
+    assert result[0]._collection.count() == 1
+    assert result[1]._collection.count() == 2
+
+
+def test_ensure_index_skips_embedding_work_when_counts_match(tmp_path, monkeypatch):
+    catalog_path = tmp_path / "catalog.jsonl"
+    chunks_path = tmp_path / "chunks.jsonl"
+    catalog_path.write_text('{"record_id":"tour-a"}\n', encoding="utf-8")
+    chunks_path.write_text('{"chunk_id":"chunk-a"}\n', encoding="utf-8")
+
+    class Store:
+        def __init__(self, count):
+            self._collection = type("Collection", (), {"count": lambda self: count})()
+
+    expected = (Store(1), Store(1))
+    monkeypatch.setattr(app, "_open_stores", lambda settings: expected)
+    monkeypatch.setattr(
+        app,
+        "build_collections",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("unexpected rebuild")),
+    )
+
+    result = app.ensure_index_ready(
+        object(),
+        catalog_path=catalog_path,
+        chunks_path=chunks_path,
+        required_files=[catalog_path, chunks_path],
+    )
+
+    assert result == expected
+
+
+def test_settings_loads_provider_keys_from_streamlit_secrets(monkeypatch):
+    monkeypatch.setattr(
+        app.st,
+        "secrets",
+        {"DEEPSEEK_API_KEY": "key-a", "GEMINI_API_KEY": "key-b"},
+    )
+
+    settings = app.load_settings()
+
+    assert settings.deepseek_api_key == "key-a"
+    assert settings.gemini_api_key == "key-b"

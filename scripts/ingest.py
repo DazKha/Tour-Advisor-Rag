@@ -14,14 +14,14 @@ from pydantic import ValidationError
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from vietravel_rag.ingestion.aggregates import build_catalog  # noqa: E402
-from vietravel_rag.ingestion.chunker import chunk_tour  # noqa: E402
-from vietravel_rag.ingestion.pdf_extract import extract_pdf_pages  # noqa: E402
-from vietravel_rag.ingestion.sales_guidance import build_sales_guidance  # noqa: E402
-from vietravel_rag.ingestion.sources import TOUR_SOURCES  # noqa: E402
-from vietravel_rag.ingestion.validation import validate_corpus  # noqa: E402
-from vietravel_rag.config import Settings  # noqa: E402
-from vietravel_rag.retrieval.index import build_collections  # noqa: E402
+from vietravel_rag.config import Settings
+from vietravel_rag.ingestion.aggregates import build_catalog
+from vietravel_rag.ingestion.chunker import chunk_tour
+from vietravel_rag.ingestion.pdf_extract import extract_pdf_pages
+from vietravel_rag.ingestion.sales_guidance import build_sales_guidance
+from vietravel_rag.ingestion.sources import TOUR_SOURCES
+from vietravel_rag.ingestion.validation import validate_corpus
+from vietravel_rag.retrieval.index import build_collections
 
 OUTPUT = ROOT / "data" / "processed"
 SALES_FILE = ROOT / "reference" / "Kich_ban_sale_tu_van_tour_20_tinh_huong.xlsx"

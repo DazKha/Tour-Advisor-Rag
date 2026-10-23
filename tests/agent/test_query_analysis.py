@@ -1,7 +1,7 @@
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from vietravel_rag.models import QueryAnalysis
 from vietravel_rag.agent.nodes import analyze_query
+from vietravel_rag.models import QueryAnalysis
 
 
 class FakeStructuredModel:

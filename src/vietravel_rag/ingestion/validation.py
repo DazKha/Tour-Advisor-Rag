@@ -21,7 +21,7 @@ _FACT_PATTERN = re.compile(
     r"\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d+(?:[.,]\d+)?\s*%|"
     r"\b(?:còn|đã hết|hết)\s*(?:\d+\s*)?(?:chỗ|vé|suất)\b|"
     r"\b\d{1,3}\s*[-–]\s*\d{1,3}\s*(?:ngày|tháng|tuần)\b)",
-    re.I,
+    re.IGNORECASE,
 )
 
 

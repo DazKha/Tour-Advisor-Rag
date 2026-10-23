@@ -9,17 +9,100 @@ from typing import Any
 import streamlit as st
 from langchain_chroma import Chroma
 from pydantic import ValidationError
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from vietravel_rag.agent.graph import build_graph, invoke_turn
 from vietravel_rag.config import Settings
 from vietravel_rag.llm import get_chat_model, get_embeddings
-from vietravel_rag.retrieval.index import CATALOG_COLLECTION, KNOWLEDGE_COLLECTION
+from vietravel_rag.retrieval.index import (
+    CATALOG_COLLECTION,
+    KNOWLEDGE_COLLECTION,
+    build_collections,
+)
 from vietravel_rag.retrieval.resolver import get_full_itinerary, resolve_tours
 from vietravel_rag.retrieval.retriever import retrieve_evidence
 
 
 class MissingTourIndexError(RuntimeError):
     """Raised when local reviewed data or the persisted tour index is unavailable."""
+
+
+def load_settings() -> Settings:
+    """Load Community Cloud secrets when present, falling back to environment and .env."""
+    names = {
+        "DEEPSEEK_API_KEY",
+        "GEMINI_API_KEY",
+        "DEEPSEEK_BASE_URL",
+        "LLM_MODEL",
+        "EMBEDDING_MODEL",
+        "EMBEDDING_OUTPUT_DIMENSIONALITY",
+        "CHROMA_PERSIST_DIR",
+    }
+    try:
+        secrets = st.secrets
+        values = {name: secrets[name] for name in names if name in secrets}
+    except StreamlitSecretNotFoundError:
+        values = {}
+    return Settings(**values)
+
+
+def _open_stores(settings: Settings):
+    """Open application-owned Chroma collections using the configured Gemini embeddings."""
+    persist_dir = Path(settings.chroma_persist_dir)
+    embeddings = get_embeddings(settings)
+    catalog_store = Chroma(
+        collection_name=CATALOG_COLLECTION,
+        embedding_function=embeddings,
+        persist_directory=str(persist_dir),
+    )
+    knowledge_store = Chroma(
+        collection_name=KNOWLEDGE_COLLECTION,
+        embedding_function=embeddings,
+        persist_directory=str(persist_dir),
+    )
+    return catalog_store, knowledge_store
+
+
+def _jsonl_record_count(path: Path) -> int:
+    with path.open(encoding="utf-8") as handle:
+        return sum(bool(line.strip()) for line in handle)
+
+
+def ensure_index_ready(
+    settings: Settings,
+    *,
+    catalog_path: Path = Path("data/processed/tour_catalog.jsonl"),
+    chunks_path: Path = Path("data/processed/tour_chunks.jsonl"),
+    required_files: list[Path] | None = None,
+):
+    """Open a matching index or build it once from reviewed JSONL artifacts."""
+    required = required_files or [catalog_path, chunks_path]
+    if not all(path.is_file() for path in required):
+        raise MissingTourIndexError
+
+    expected_catalog = _jsonl_record_count(catalog_path)
+    expected_chunks = _jsonl_record_count(chunks_path)
+    catalog_store, knowledge_store = _open_stores(settings)
+    counts_match = (
+        catalog_store._collection.count() == expected_catalog
+        and knowledge_store._collection.count() == expected_chunks
+    )
+    if not counts_match:
+        build_collections(
+            settings,
+            catalog_path=catalog_path,
+            chunks_path=chunks_path,
+        )
+        catalog_store, knowledge_store = _open_stores(settings)
+
+    if (
+        catalog_store._collection.count() != expected_catalog
+        or knowledge_store._collection.count() != expected_chunks
+        or expected_catalog == 0
+        or expected_chunks == 0
+    ):
+        raise MissingTourIndexError
+    return catalog_store, knowledge_store
 
 
 def render_citation_label(metadata: dict[str, Any]) -> str:
@@ -84,28 +167,14 @@ class _TourRetriever:
 @st.cache_resource(show_spinner="Đang kết nối dữ liệu tour…")
 def load_graph_resources():
     """Create provider clients and persistent Chroma stores once per app process."""
-    settings = Settings()
-    persist_dir = Path(settings.chroma_persist_dir)
+    settings = load_settings()
     required_files = [
+        Path("data/processed/tour_catalog.jsonl"),
+        Path("data/processed/tour_chunks.jsonl"),
         Path("data/processed/conflicts.json"),
         Path("data/processed/sales_guidance.json"),
     ]
-    if not persist_dir.is_dir() or not all(path.is_file() for path in required_files):
-        raise MissingTourIndexError
-
-    embeddings = get_embeddings(settings)
-    catalog_store = Chroma(
-        collection_name=CATALOG_COLLECTION,
-        embedding_function=embeddings,
-        persist_directory=str(persist_dir),
-    )
-    knowledge_store = Chroma(
-        collection_name=KNOWLEDGE_COLLECTION,
-        embedding_function=embeddings,
-        persist_directory=str(persist_dir),
-    )
-    if catalog_store._collection.count() == 0 or knowledge_store._collection.count() == 0:
-        raise MissingTourIndexError
+    catalog_store, knowledge_store = ensure_index_ready(settings, required_files=required_files)
     catalog_store.relevance_floor = settings.tour_resolution_relevance_floor
     catalog_store.relevance_margin = settings.tour_resolution_margin
     retriever = _TourRetriever(catalog_store, knowledge_store)

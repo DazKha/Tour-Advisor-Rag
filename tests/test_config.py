@@ -19,8 +19,8 @@ def test_settings_defaults(monkeypatch):
 def test_settings_loads_dotenv_and_environment_overrides_it(tmp_path: Path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "DEEPSEEK_API_KEY=deepseek-from-file\n"
-        "GEMINI_API_KEY=gemini-from-file\n"
+        "DEEPSEEK_API_KEY=a\n"
+        "GEMINI_API_KEY=b\n"
         "LLM_MODEL=file-model\n",
         encoding="utf-8",
     )
@@ -31,6 +31,6 @@ def test_settings_loads_dotenv_and_environment_overrides_it(tmp_path: Path, monk
 
     settings = Settings()
 
-    assert settings.deepseek_api_key == "deepseek-from-file"
-    assert settings.gemini_api_key == "gemini-from-file"
+    assert settings.deepseek_api_key == "a"
+    assert settings.gemini_api_key == "b"
     assert settings.llm_model == "environment-model"
