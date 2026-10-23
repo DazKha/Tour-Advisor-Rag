@@ -6,6 +6,10 @@ import inspect
 import json
 from typing import Any
 
+from langchain_core.exceptions import OutputParserException
+from langchain_core.messages import SystemMessage
+from pydantic import ValidationError
+
 
 def deepseek_json_output(model: Any, schema: type, instructions: str):
     """Return a JSON-mode parser and an explicit schema-bearing system prompt.
@@ -28,3 +32,36 @@ def deepseek_json_output(model: Any, schema: type, instructions: str):
         f"{schema_json}"
     )
     return structured, prompt
+
+
+def invoke_deepseek_json(
+    model: Any,
+    schema: type,
+    instructions: str,
+    messages: list,
+    *,
+    max_attempts: int = 2,
+):
+    """Invoke JSON mode with one bounded retry for malformed model output."""
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    structured, output_prompt = deepseek_json_output(model, schema, instructions)
+    invocation_messages = [SystemMessage(content=output_prompt), *messages]
+    for attempt in range(1, max_attempts + 1):
+        try:
+            raw = structured.invoke(invocation_messages)
+            parsed = raw if isinstance(raw, schema) else schema.model_validate(raw)
+            return parsed, attempt
+        except (OutputParserException, ValidationError, json.JSONDecodeError):
+            if attempt == max_attempts:
+                raise
+            invocation_messages = [
+                *invocation_messages,
+                SystemMessage(
+                    content=(
+                        "The previous output was invalid. Return one complete JSON object "
+                        "matching the schema exactly."
+                    )
+                ),
+            ]
+    raise AssertionError("unreachable")

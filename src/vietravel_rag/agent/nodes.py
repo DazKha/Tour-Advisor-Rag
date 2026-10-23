@@ -8,13 +8,15 @@ from inspect import Parameter, signature
 from typing import Any
 
 from langchain_core.documents import Document
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import RemoveMessage, SystemMessage
+from pydantic import ValidationError
 
 from vietravel_rag.agent.prompts import (
     ANSWER_GENERATION_SYSTEM_PROMPT,
     QUERY_ANALYSIS_SYSTEM_PROMPT,
 )
-from vietravel_rag.agent.structured_output import deepseek_json_output
+from vietravel_rag.agent.structured_output import invoke_deepseek_json
 from vietravel_rag.guardrails.input_guard import validate_input
 from vietravel_rag.guardrails.output_guard import validate_answer
 from vietravel_rag.models import AgentState, QueryAnalysis, TourAnswer
@@ -88,14 +90,12 @@ def analyze_query(state: AgentState, model) -> dict[str, Any]:
         f"Tên các tour tương ứng: {active}\n"
         "Phân tích tin nhắn cuối cùng; dùng các tin trước chỉ để giải quyết câu tiếp nối."
     )
-    structured_model, output_prompt = deepseek_json_output(
-        model, QueryAnalysis, QUERY_ANALYSIS_SYSTEM_PROMPT
+    analysis, _attempts = invoke_deepseek_json(
+        model,
+        QueryAnalysis,
+        f"{QUERY_ANALYSIS_SYSTEM_PROMPT}\n\n{context}",
+        messages,
     )
-    analysis = structured_model.invoke(
-        [SystemMessage(content=f"{output_prompt}\n\n{context}"), *messages]
-    )
-    if not isinstance(analysis, QueryAnalysis):
-        analysis = QueryAnalysis.model_validate(analysis)
     analysis = analysis.model_copy(
         update={"tour_references": _explicit_references(current_text, analysis.tour_references)}
     )
@@ -451,20 +451,28 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
         f"Bằng chứng đã duyệt:\n{evidence}"
     )
     try:
-        structured, output_prompt = deepseek_json_output(
-            model, TourAnswer, ANSWER_GENERATION_SYSTEM_PROMPT
+        answer, attempts = invoke_deepseek_json(
+            model,
+            TourAnswer,
+            ANSWER_GENERATION_SYSTEM_PROMPT,
+            [SystemMessage(content=context)],
         )
-        raw = structured.invoke(
-            [SystemMessage(content=output_prompt), SystemMessage(content=context)]
-        )
-        answer = raw if isinstance(raw, TourAnswer) else TourAnswer.model_validate(raw)
-    except Exception:  # noqa: BLE001 - provider failures must become a safe, non-retried response
+    except (OutputParserException, ValidationError) as exc:
         answer = TourAnswer(
             status="unsupported",
             answer="Dạ, em chưa thể tạo câu trả lời có căn cứ từ tài liệu tour ạ.",
             citation_ids=[], conflicts=[],
         )
-    return {"draft_response": answer.model_dump()}
+        return {
+            "draft_response": answer.model_dump(),
+            "generation_attempts": 2,
+            "generation_error_type": type(exc).__name__,
+        }
+    return {
+        "draft_response": answer.model_dump(),
+        "generation_attempts": attempts,
+        "generation_error_type": None,
+    }
 
 
 def output_guard_node(state: AgentState) -> dict[str, Any]:

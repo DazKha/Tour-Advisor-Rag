@@ -493,16 +493,19 @@ def test_compiled_graph_has_required_node_order_and_edges():
     assert ("response_generation", "output_guard") in edges
 
 
-def test_graph_does_not_retry_when_structured_answer_is_invalid():
+def test_graph_recovers_once_from_invalid_structured_answer():
     evidence = make_chunk("price-1", "Giá tour 8.990.000đ")
     model = FakeModel([
         QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
         {"status": "not-a-valid-status", "answer": "", "citation_ids": [], "conflicts": []},
+        TourAnswer(status="answered", answer="Giá tour là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
     ])
 
     result = invoke(model, None, None, None, [evidence])
 
-    assert result["response"]["status"] == "unsupported"
+    assert result["response"]["status"] == "answered"
+    assert result["response"]["citation_ids"] == ["price-1"]
+    assert result["generation_attempts"] == 2
     assert model.schemas == [QueryAnalysis, TourAnswer]
 
 

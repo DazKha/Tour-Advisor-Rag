@@ -266,6 +266,8 @@ def _run_cases(cases: list[dict], chunk_by_id: dict[str, dict], graph) -> list[d
                     "latency_ms": latency_ms,
                     "input_tokens": usage.input_tokens,
                     "output_tokens": usage.output_tokens,
+                    "generation_attempts": (state or {}).get("generation_attempts"),
+                    "generation_error_type": (state or {}).get("generation_error_type"),
                 }
             )
         except Exception as exc:  # noqa: BLE001 - provider exceptions vary; persist class only
@@ -285,6 +287,8 @@ def _run_cases(cases: list[dict], chunk_by_id: dict[str, dict], graph) -> list[d
                     "latency_ms": latency_ms,
                     "input_tokens": usage.input_tokens,
                     "output_tokens": usage.output_tokens,
+                    "generation_attempts": (state or {}).get("generation_attempts"),
+                    "generation_error_type": (state or {}).get("generation_error_type"),
                     "error_type": type(exc).__name__,
                 }
             )

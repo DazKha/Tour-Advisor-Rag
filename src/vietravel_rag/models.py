@@ -100,3 +100,5 @@ class AgentState(TypedDict, total=False):
     sales_guidance: list[dict]
     approved_chunk_ids: list[str]
     approved_chunks: list[Document]
+    generation_attempts: int
+    generation_error_type: str | None
