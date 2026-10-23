@@ -12,13 +12,12 @@ from langchain_core.messages import RemoveMessage, SystemMessage
 
 from vietravel_rag.agent.prompts import (
     ANSWER_GENERATION_SYSTEM_PROMPT,
-    EVIDENCE_ASSESSMENT_SYSTEM_PROMPT,
     QUERY_ANALYSIS_SYSTEM_PROMPT,
 )
 from vietravel_rag.agent.structured_output import deepseek_json_output
 from vietravel_rag.guardrails.input_guard import validate_input
 from vietravel_rag.guardrails.output_guard import validate_answer
-from vietravel_rag.models import AgentState, EvidenceAssessment, QueryAnalysis, TourAnswer
+from vietravel_rag.models import AgentState, QueryAnalysis, TourAnswer
 
 _PRONOUNS = re.compile(r"\b(tour\s+đó|tour\s+này|tour\s+kia|chuyến\s+đó)\b", re.IGNORECASE)
 _ADJACENT = re.compile(r"\b(ngày\s+tiếp theo|ngày\s+trước đó|ngày\s+kế tiếp|ngày\s+trước)\b", re.IGNORECASE)
@@ -370,15 +369,10 @@ def conflict_guard(state: AgentState, conflicts: list[dict]) -> dict[str, Any]:
     return {"evidence_status": None}
 
 
-def assess_evidence(state: AgentState, model) -> dict[str, Any]:
-    """Assess retrieved evidence and constrain selected IDs to supplied official chunks."""
+def prepare_evidence(state: AgentState) -> dict[str, Any]:
+    """Apply deterministic routing and expose only official knowledge chunks."""
     if state.get("evidence_status") == "conflict":
         return {
-            "evidence_assessment": EvidenceAssessment(
-                status="conflict",
-                approved_chunk_ids=list(state.get("approved_chunk_ids", [])),
-                reason=str(state.get("conflict_description", "Nguồn có mâu thuẫn.")),
-            ),
             "approved_chunk_ids": list(state.get("approved_chunk_ids", [])),
             "approved_chunks": list(state.get("approved_chunks", [])),
         }
@@ -386,10 +380,7 @@ def assess_evidence(state: AgentState, model) -> dict[str, Any]:
     if analysis.intent == "availability" or (
         analysis.intent in {"price", "child_price"} and _CURRENT_PRICE.search(analysis.standalone_query)
     ):
-        assessment = EvidenceAssessment(
-            status="realtime_required", approved_chunk_ids=[], reason="Cần kiểm tra dữ liệu thời gian thực."
-        )
-        return {"evidence_assessment": assessment, "evidence_status": assessment.status, "approved_chunk_ids": []}
+        return {"evidence_status": "realtime_required", "approved_chunk_ids": [], "approved_chunks": []}
     high_risk = (
         analysis.intent in {"health", "complaint"}
         or (analysis.intent == "visa" and bool(_VISA_GUARANTEE.search(analysis.standalone_query)))
@@ -397,10 +388,7 @@ def assess_evidence(state: AgentState, model) -> dict[str, Any]:
         or (analysis.intent == "cancellation" and bool(_EXECUTE_CANCEL.search(analysis.standalone_query)))
     )
     if high_risk:
-        assessment = EvidenceAssessment(
-            status="high_risk", approved_chunk_ids=[], reason="Yêu cầu cần nhân viên hoặc chuyên gia hỗ trợ."
-        )
-        return {"evidence_assessment": assessment, "evidence_status": assessment.status, "approved_chunk_ids": []}
+        return {"evidence_status": "high_risk", "approved_chunk_ids": [], "approved_chunks": []}
 
     chunks = [
         _as_document(chunk)
@@ -408,32 +396,11 @@ def assess_evidence(state: AgentState, model) -> dict[str, Any]:
         if chunk.metadata.get("authority") == "official_tour_pdf"
         and chunk.metadata.get("document_type") == "knowledge"
     ]
-    ids = [str(doc.metadata.get("chunk_id")) for doc in chunks if doc.metadata.get("chunk_id")]
-    prompt_data = "\n".join(
-        f"chunk_id={doc.metadata.get('chunk_id')}\n{doc.metadata.get('content', doc.page_content)}"
-        for doc in chunks
-    )
-    structured, output_prompt = deepseek_json_output(
-        model, EvidenceAssessment, EVIDENCE_ASSESSMENT_SYSTEM_PROMPT
-    )
-    raw = structured.invoke(
-        [
-            SystemMessage(content=output_prompt),
-            SystemMessage(content=f"Câu hỏi: {analysis.standalone_query}\nIntent: {analysis.intent}\nBằng chứng:\n{prompt_data}"),
-        ]
-    )
-    assessment = raw if isinstance(raw, EvidenceAssessment) else EvidenceAssessment.model_validate(raw)
-    if any(chunk_id not in ids for chunk_id in assessment.approved_chunk_ids):
-        assessment = EvidenceAssessment(
-            status="insufficient", approved_chunk_ids=[], reason="Mô hình chọn chunk không có trong bằng chứng."
-        )
-    approved_ids = list(dict.fromkeys(assessment.approved_chunk_ids))
-    approved = [doc for doc in chunks if doc.metadata.get("chunk_id") in approved_ids]
+    approved_ids = [str(doc.metadata["chunk_id"]) for doc in chunks if doc.metadata.get("chunk_id")]
     return {
-        "evidence_assessment": assessment,
-        "evidence_status": assessment.status,
+        "evidence_status": "conflict" if state.get("evidence_status") == "conflict" else ("sufficient" if chunks else "insufficient"),
         "approved_chunk_ids": approved_ids,
-        "approved_chunks": approved,
+        "approved_chunks": chunks,
     }
 
 

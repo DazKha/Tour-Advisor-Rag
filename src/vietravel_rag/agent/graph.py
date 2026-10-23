@@ -12,12 +12,12 @@ from langgraph.graph import END, START, StateGraph
 
 from vietravel_rag.agent.nodes import (
     analyze_query,
-    assess_evidence,
     conflict_guard,
     direct_response_node,
     generate_answer,
     input_guard_node,
     output_guard_node,
+    prepare_evidence,
     resolve_tour_node,
     retrieve_node,
 )
@@ -63,20 +63,13 @@ def build_graph(deps) -> Any:
         update["query_analysis"] = update["query_analysis"].model_dump()
         return update
 
-    def evidence_assessment_node(state: AgentState) -> dict:
-        update = assess_evidence(state, model)
-        assessment = update.get("evidence_assessment")
-        if assessment is not None and hasattr(assessment, "model_dump"):
-            update["evidence_assessment"] = assessment.model_dump()
-        return update
-
     workflow = StateGraph(AgentState)
     workflow.add_node("input_guard", input_guard_node)
     workflow.add_node("query_analysis", query_analysis_node)
     workflow.add_node("tour_resolver", lambda state: resolve_tour_node(state, resolver))
     workflow.add_node("retrieval", lambda state: retrieve_node(state, retriever))
     workflow.add_node("conflict_guard", lambda state: conflict_guard(state, conflicts))
-    workflow.add_node("evidence_assessment", evidence_assessment_node)
+    workflow.add_node("evidence_preparation", prepare_evidence)
     workflow.add_node(
         "response_generation",
         lambda state: {
@@ -100,8 +93,8 @@ def build_graph(deps) -> Any:
         {"retrieve": "retrieval", "finish": "direct_response"},
     )
     workflow.add_edge("retrieval", "conflict_guard")
-    workflow.add_edge("conflict_guard", "evidence_assessment")
-    workflow.add_edge("evidence_assessment", "response_generation")
+    workflow.add_edge("conflict_guard", "evidence_preparation")
+    workflow.add_edge("evidence_preparation", "response_generation")
     workflow.add_edge("response_generation", "output_guard")
     workflow.add_edge("output_guard", END)
     workflow.add_edge("direct_response", END)

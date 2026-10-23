@@ -61,8 +61,8 @@ def test_explicit_tour_reference_is_preserved_and_no_tour_is_not_invented():
 
     assert result["query_analysis"].tour_references == ["miền Tây"]
     prompt = model.messages[0].content
-    assert "không tự gán mã tour" in prompt.casefold()
-    assert "không trả lời" in prompt.casefold()
+    assert "never invent tour codes" in prompt.casefold()
+    assert "or answer the user" in prompt.casefold()
 
 
 def test_uninferable_tour_reference_stays_empty():

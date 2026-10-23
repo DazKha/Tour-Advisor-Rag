@@ -4,7 +4,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import SystemMessage
 
 from vietravel_rag.agent.graph import build_graph
-from vietravel_rag.models import EvidenceAssessment, QueryAnalysis, TourAnswer
+from vietravel_rag.models import QueryAnalysis, TourAnswer
 
 
 class DeepSeekJsonModeModel:
@@ -16,9 +16,6 @@ class DeepSeekJsonModeModel:
                 intent="price",
                 tour_references=[],
                 standalone_query="Giá tour Bangkok – Pattaya",
-            ),
-            EvidenceAssessment(
-                status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá trong nguồn."
             ),
             TourAnswer(
                 status="answered",
@@ -91,4 +88,4 @@ def test_graph_uses_json_mode_and_embeds_exact_contract_for_all_schemas():
 
     assert result["response"]["status"] == "answered"
     assert result["response"]["citation_ids"] == ["price-1"]
-    assert model.schemas == [QueryAnalysis, EvidenceAssessment, TourAnswer]
+    assert model.schemas == [QueryAnalysis, TourAnswer]

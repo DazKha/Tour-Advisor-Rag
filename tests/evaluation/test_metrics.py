@@ -94,6 +94,13 @@ def test_forbidden_claim_and_numeric_rates_are_zero_for_empty_answers():
     assert numeric_grounding_rate([{"answer": ""}], [[]]) == 1.0
 
 
+def test_numeric_grounding_metric_compares_numeric_tokens_without_guard_parser():
+    results = [{"answer": "5 days and 12 million VND"}]
+
+    assert numeric_grounding_rate(results, [["5 days and 12 million VND"]]) == 1.0
+    assert numeric_grounding_rate(results, [["5 days and 10 million VND"]]) == 0.5
+
+
 def test_dataset_has_required_distribution_and_only_real_reference_ids():
     cases = load_cases("data/eval/eval_cases.jsonl")
     chunks = [json.loads(line) for line in Path("data/processed/tour_chunks.jsonl").read_text(encoding="utf-8").splitlines()]

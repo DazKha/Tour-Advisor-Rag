@@ -4,8 +4,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage
 
 from vietravel_rag.agent.graph import build_graph, invoke_turn
-from vietravel_rag.agent.nodes import assess_evidence
-from vietravel_rag.models import EvidenceAssessment, QueryAnalysis, TourAnswer
+from vietravel_rag.models import QueryAnalysis, TourAnswer
 
 
 class FakeModel:
@@ -78,7 +77,6 @@ def test_graph_returns_cited_price_answer():
     model = FakeModel(
         [
             QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
-            EvidenceAssessment(status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá."),
             TourAnswer(status="answered", answer="Giá tour là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
         ]
     )
@@ -87,14 +85,37 @@ def test_graph_returns_cited_price_answer():
 
     assert result["response"]["status"] == "answered"
     assert result["response"]["citation_ids"] == ["price-1"]
-    assert model.schemas == [QueryAnalysis, EvidenceAssessment, TourAnswer]
+    assert model.schemas == [QueryAnalysis, TourAnswer]
+    assert "evidence_assessment" not in build_graph({
+        "model": FakeModel([]), "resolver": lambda query: [], "retriever": FakeRetriever([]),
+        "conflicts": [], "sales_guidance": [],
+    }).get_graph().nodes
+
+
+def test_answer_generation_receives_only_official_knowledge_chunks_for_active_tour():
+    official = make_chunk("official", "Official facts")
+    wrong_authority = make_chunk("unofficial", "Unofficial facts")
+    wrong_authority.metadata["authority"] = "sales_guidance"
+    wrong_type = make_chunk("summary", "Summary facts")
+    wrong_type.metadata["document_type"] = "tour_summary"
+    other_tour = make_chunk("other-tour", "Other tour facts", code="japan")
+    model = FakeModel([
+        QueryAnalysis(intent="price", tour_references=[], standalone_query="What is included?"),
+        TourAnswer(status="answered", answer="Facts.", citation_ids=["official"], conflicts=[]),
+    ])
+
+    invoke(model, None, None, None, [official, wrong_authority, wrong_type, other_tour])
+
+    assert "Official facts" in model.messages[1][1].content
+    assert "Unofficial facts" not in model.messages[1][1].content
+    assert "Summary facts" not in model.messages[1][1].content
+    assert "Other tour facts" not in model.messages[1][1].content
 
 
 def test_answer_prompt_receives_only_guidance_for_current_intent():
     price = make_chunk("price-1", "Giá tour 8.990.000đ")
     model = FakeModel([
         QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá."),
         TourAnswer(status="answered", answer="Giá tour là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
     ])
 
@@ -106,7 +127,7 @@ def test_answer_prompt_receives_only_guidance_for_current_intent():
         ],
     )
 
-    prompt = model.messages[2][1].content
+    prompt = model.messages[1][1].content
     assert "Acknowledge and cite" in prompt
     assert "Escalate to staff" not in prompt
 
@@ -120,7 +141,6 @@ def test_graph_rewrites_child_price_follow_up_using_active_tour():
                 tour_references=[],
                 standalone_query="Giá trẻ em 8 tuổi của tour Bangkok – Pattaya là bao nhiêu?",
             ),
-            EvidenceAssessment(status="sufficient", approved_chunk_ids=["child-1"], reason="Có giá trẻ em."),
             TourAnswer(status="answered", answer="Trẻ từ 5 đến dưới 12 tuổi tính 75% giá tour người lớn.", citation_ids=["child-1"], conflicts=[]),
         ]
     )
@@ -178,7 +198,6 @@ def test_graph_routes_live_availability_to_realtime_required():
     model = FakeModel(
         [
             QueryAnalysis(intent="availability", tour_references=[], standalone_query="Tour còn chỗ hôm nay không?"),
-            EvidenceAssessment(status="realtime_required", approved_chunk_ids=[], reason="Cần kiểm tra trực tiếp."),
             TourAnswer(status="escalate", answer="Mình không thể kiểm tra chỗ trống theo thời gian thực. Vui lòng liên hệ Vietravel.", citation_ids=[], conflicts=[]),
         ]
     )
@@ -242,7 +261,6 @@ def test_graph_answers_documented_cancellation_policy_without_claiming_execution
     policy = make_chunk("cancel-1", "Hủy tour trước 10 ngày chịu phí theo chính sách.", section="cancellation")
     model = FakeModel([
         QueryAnalysis(intent="cancellation", tour_references=[], standalone_query="Chính sách hủy tour là gì?"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["cancel-1"], reason="Có chính sách."),
         TourAnswer(
             status="answered",
             answer="Tài liệu nêu hủy tour trước 10 ngày chịu phí theo chính sách.",
@@ -299,8 +317,9 @@ def test_compiled_graph_has_required_node_order_and_edges():
     edges = {(edge.source, edge.target) for edge in structure.edges}
 
     assert names.index("input_guard") < names.index("query_analysis") < names.index("tour_resolver")
-    assert names.index("retrieval") < names.index("conflict_guard") < names.index("evidence_assessment")
-    assert names.index("evidence_assessment") < names.index("response_generation") < names.index("output_guard")
+    assert "evidence_assessment" not in names
+    assert names.index("retrieval") < names.index("conflict_guard") < names.index("response_generation")
+    assert names.index("response_generation") < names.index("output_guard")
     assert ("__start__", "input_guard") in edges
     assert ("retrieval", "conflict_guard") in edges
     assert ("response_generation", "output_guard") in edges
@@ -310,59 +329,20 @@ def test_graph_does_not_retry_when_structured_answer_is_invalid():
     evidence = make_chunk("price-1", "Giá tour 8.990.000đ")
     model = FakeModel([
         QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá."),
         {"status": "not-a-valid-status", "answer": "", "citation_ids": [], "conflicts": []},
     ])
 
     result = invoke(model, None, None, None, [evidence])
 
     assert result["response"]["status"] == "unsupported"
-    assert model.schemas == [QueryAnalysis, EvidenceAssessment, TourAnswer]
-
-
-def test_evidence_assessment_rejects_ids_not_supplied_in_context():
-    model = FakeModel([
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["hidden-id"], reason="Có căn cứ.")
-    ])
-    result = assess_evidence(
-        {
-            "query_analysis": QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour"),
-            "retrieved_chunks": [make_chunk("price-1", "Giá tour 8.990.000đ")],
-        },
-        model,
-    )
-
-    assert result["evidence_status"] == "insufficient"
-    assert result["approved_chunk_ids"] == []
-
-
-def test_evidence_assessment_never_uses_sales_guidance_as_factual_evidence():
-    model = FakeModel([
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["summary-1"], reason="Có căn cứ.")
-    ])
-    summary = Document(
-        "Tour có thời lượng 5 ngày.",
-        metadata={"chunk_id": "summary-1", "document_type": "tour_summary"},
-    )
-    result = assess_evidence(
-        {
-            "query_analysis": QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour"),
-            "retrieved_chunks": [summary],
-        },
-        model,
-    )
-
-    assert result["evidence_status"] == "insufficient"
-    assert result["approved_chunk_ids"] == []
+    assert model.schemas == [QueryAnalysis, TourAnswer]
 
 
 def test_graph_checkpointer_keeps_session_state_separate_by_thread_id():
     model = FakeModel([
         QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá."),
         TourAnswer(status="answered", answer="Giá là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
         QueryAnalysis(intent="child_price", tour_references=[], standalone_query="Giá trẻ em của tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["child-1"], reason="Có giá trẻ em."),
         TourAnswer(status="answered", answer="Trẻ em từ 5 đến dưới 12 tuổi tính 75%.", citation_ids=["child-1"], conflicts=[]),
     ])
     graph = build_graph({
@@ -388,10 +368,8 @@ def test_graph_checkpointer_keeps_session_state_separate_by_thread_id():
 def test_session_invoker_places_previous_answer_in_follow_up_context():
     model = FakeModel([
         QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["price-1"], reason="Có giá."),
         TourAnswer(status="answered", answer="Giá là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
         QueryAnalysis(intent="child_price", tour_references=[], standalone_query="Giá trẻ em của tour Bangkok"),
-        EvidenceAssessment(status="sufficient", approved_chunk_ids=["child-1"], reason="Có giá trẻ em."),
         TourAnswer(status="answered", answer="Trẻ em từ 5 đến dưới 12 tuổi tính 75%.", citation_ids=["child-1"], conflicts=[]),
     ])
     graph = build_graph({
@@ -408,6 +386,6 @@ def test_session_invoker_places_previous_answer_in_follow_up_context():
     invoke_turn(graph, "Giá tour?", "session-followup")
     invoke_turn(graph, "Bé 8 tuổi thì sao?", "session-followup")
 
-    follow_up_prompt = model.messages[3]
+    follow_up_prompt = model.messages[2]
     assert any(isinstance(message, AIMessage) and "8.990.000" in message.content for message in follow_up_prompt)
     assert len(follow_up_prompt) <= 11  # system context plus at most ten history messages

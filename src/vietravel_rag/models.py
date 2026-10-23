@@ -72,12 +72,6 @@ class QueryAnalysis(BaseModel):
     standalone_query: str
 
 
-class EvidenceAssessment(BaseModel):
-    status: Literal["sufficient", "conflict", "insufficient", "realtime_required", "high_risk"]
-    approved_chunk_ids: list[str]
-    reason: str
-
-
 class TourAnswer(BaseModel):
     status: Literal["answered", "clarification_needed", "conflict", "unsupported", "escalate"]
     answer: str
@@ -104,5 +98,4 @@ class AgentState(TypedDict, total=False):
     draft_response: dict | None
     sales_guidance: list[dict]
     approved_chunk_ids: list[str]
-    evidence_assessment: EvidenceAssessment | dict | None
     approved_chunks: list[Document]

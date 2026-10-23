@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from statistics import quantiles
 from typing import Any
 
-from vietravel_rag.guardrails.output_guard import _number_facts
+_NUMBER_TOKEN = re.compile(r"(?<!\d)\d+(?:[.,]\d+)*(?!\d)")
+
+
+def _numeric_tokens(text: str) -> set[str]:
+    return {match.group().replace(".", "").replace(",", "") for match in _NUMBER_TOKEN.finditer(text)}
 
 
 def citation_validity(citation_ids: list[str], retrieved_ids: set[str]) -> float:
@@ -37,10 +42,10 @@ def numeric_grounding_rate(results: list[dict], contexts: list[list[str]]) -> fl
     """Return the fraction of answer numeric facts supported by retrieved text."""
     claims = grounded = 0
     for result, retrieved_contexts in zip(results, contexts, strict=True):
-        answer_facts = _number_facts(str(result.get("answer", "")))
-        context_facts = _number_facts(" ".join(retrieved_contexts))
-        claims += len(answer_facts)
-        grounded += sum(fact in context_facts for fact in answer_facts)
+        answer_numbers = _numeric_tokens(str(result.get("answer", "")))
+        context_numbers = _numeric_tokens(" ".join(retrieved_contexts))
+        claims += len(answer_numbers)
+        grounded += sum(number in context_numbers for number in answer_numbers)
     return _rate(grounded, claims) if claims else 1.0
 
 
