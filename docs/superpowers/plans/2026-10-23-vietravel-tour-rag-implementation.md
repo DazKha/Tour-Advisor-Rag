@@ -845,7 +845,7 @@ git commit -m "feat: add Streamlit multi-turn demo"
 - Consumes: compiled graph output and reference cases.
 - Produces: `results/eval_results.json`, `results/eval_summary.json`, and metric functions for citation validity, route correctness, numeric grounding, safety, latency, and cost.
 
-- [ ] **Step 1: Create at least 30 reviewed eval cases**
+- [x] **Step 1: Create at least 30 reviewed eval cases**
 
 Use JSONL records with:
 
@@ -871,7 +871,7 @@ Replace the example IDs with real reviewed chunk IDs. Distribution:
 - 3 real-time/high-risk cases;
 - 3 injection/out-of-scope cases.
 
-- [ ] **Step 2: Write failing deterministic metric tests**
+- [x] **Step 2: Write failing deterministic metric tests**
 
 ```python
 def test_citation_validity():
@@ -886,12 +886,12 @@ def test_percentile_summary():
 
 Also test route/status accuracy, forbidden-claim rate, and numeric-grounding rate.
 
-- [ ] **Step 3: Run metric tests and verify failure**
+- [x] **Step 3: Run metric tests and verify failure**
 
 Run: `python -m pytest tests/evaluation -v`<br>
 Expected: missing metric implementations.
 
-- [ ] **Step 4: Implement deterministic metrics**
+- [x] **Step 4: Implement deterministic metrics**
 
 Calculate:
 
@@ -907,7 +907,7 @@ Calculate:
 
 Use conservative peak, cache-miss DeepSeek Flash rates for the initial report: USD 0.30 per million input tokens and USD 1.20 per million output tokens, verified on 2026-10-23 from `https://api-docs.deepseek.com/quick_start/pricing/`. Require CLI arguments `--input-price-per-million` and `--output-price-per-million`, and store the supplied values, source URL, and report timestamp so later runs can update pricing without code changes.
 
-- [ ] **Step 5: Implement the Ragas adapter**
+- [x] **Step 5: Implement the Ragas adapter**
 
 Map each completed case to the current collections-style fields:
 
@@ -920,7 +920,7 @@ Map each completed case to the current collections-style fields:
 
 Evaluate Context Precision, Context Recall, Faithfulness, Response Relevancy, and Answer Correctness where references exist. Configure DeepSeek as judge for the deadline and write `judge_model_self_evaluation=true` in the summary limitations.
 
-- [ ] **Step 6: Run unit tests and the evaluation**
+- [x] **Step 6: Run unit tests and the evaluation**
 
 Run: `python -m pytest tests/evaluation -v`<br>
 Expected: all tests pass.
@@ -936,7 +936,7 @@ python scripts/evaluate.py \
 
 Before execution, verify the rates on the official pricing page and change the arguments only if the provider has updated them. Expected: both JSON result files, all 30+ cases executed, and failures listed by case ID.
 
-- [ ] **Step 7: Review failures and commit**
+- [x] **Step 7: Review failures and commit**
 
 Fix only clear ingestion, routing, or prompt defects. Do not tune prompts to copy reference answers. Record remaining errors by category in the README.
 
@@ -944,6 +944,20 @@ Fix only clear ingestion, routing, or prompt defects. Do not tune prompts to cop
 git add data/eval src/vietravel_rag/evaluation scripts/evaluate.py tests/evaluation
 git commit -m "test: add RAG and safety evaluation"
 ```
+
+#### Task 7 Review Ledger
+
+- [x] Add 30 JSONL cases with the exact 10/5/5/4/3/3 category split; validate every referenced chunk ID against `data/processed/tour_chunks.jsonl`.
+- [x] Implement deterministic intent, exact tour resolution, answer status, safe-status, citation, numeric grounding, prohibited-claim, latency, and token-cost metrics with offline tests.
+- [x] Add the Ragas 0.3.1 adapter for Context Precision, Context Recall, Faithfulness, Response Relevancy, and Answer Correctness; attach DeepSeek judge, Gemini embeddings, context IDs, and `judge_model_self_evaluation=true`.
+- [x] Require input/output price CLI arguments and record their values, official source URL, and UTC timestamp. Official DeepSeek pricing checked 2026-10-23: peak cache-miss input $0.30/M and output $1.20/M.
+- [x] Add `--limit` and `--skip-ragas` smoke controls and sanitize provider failures to case ID/error type in saved results.
+- [x] Fix Ragas import compatibility by constraining `langchain-community<0.4`, since installed Ragas 0.3.1 imports a Vertex AI module removed in community 0.4.
+- [x] Run one provider-backed deterministic smoke and one Ragas smoke successfully; each returned an answered Thai price response with a valid citation.
+- [x] Run the 30-case evaluation. 29/30 graph cases completed; `multiturn_compare_followup` raised `OutputParserException`. Ragas returned 30 rows but had partial metric failures after DeepSeek returned insufficient-balance responses.
+- [x] Record actual run outputs in `results/eval_results.json` and `results/eval_summary.json`; do not treat missing Ragas metric values as scores.
+- [x] Full `.venv` test suite: 170 passed, 7 existing PyMuPDF/SWIG deprecation warnings. Task 7 Ruff and `git diff --check` passed.
+- [ ] Live acceptance remains partial because of the single graph parser error and DeepSeek balance limit; no rerun was attempted after the provider reported insufficient balance.
 
 ---
 
