@@ -31,11 +31,11 @@ def test_citation_label_shows_a_page_range():
 
 
 def test_response_status_label_maps_known_statuses_for_display():
-    assert app.response_status_label("answered") == "Đã trả lời"
-    assert app.response_status_label("clarification_needed") == "Cần làm rõ"
-    assert app.response_status_label("conflict") == "Có thông tin chưa thống nhất"
-    assert app.response_status_label("unsupported") == "Chưa có đủ thông tin"
-    assert app.response_status_label("escalate") == "Cần nhân viên Vietravel hỗ trợ"
+    assert app.response_status_label("answered") == "Đã tìm thấy thông tin"
+    assert app.response_status_label("clarification_needed") == "Cần thêm thông tin"
+    assert app.response_status_label("conflict") == "Có thông tin cần xác nhận"
+    assert app.response_status_label("unsupported") == "Chưa đủ thông tin"
+    assert app.response_status_label("escalate") == "Cần Vietravel hỗ trợ"
 
 
 def test_response_status_label_uses_safe_fallback_for_unknown_status():
@@ -58,6 +58,24 @@ def test_format_response_markdown_preserves_existing_markdown():
 
 def test_format_response_markdown_keeps_embedded_bullet_in_prose():
     content = "Lưu ý • vui lòng xác nhận trước ngày khởi hành."
+
+    assert app.format_response_markdown(content) == content
+
+
+def test_format_response_markdown_preserves_bullets_inside_backtick_fence():
+    content = "Ví dụ:\n```text\n• literal code bullet\n```"
+
+    assert app.format_response_markdown(content) == content
+
+
+def test_format_response_markdown_preserves_bullets_inside_tilde_fence():
+    content = "Ví dụ:\n~~~text\n• literal code bullet\n~~~"
+
+    assert app.format_response_markdown(content) == content
+
+
+def test_format_response_markdown_preserves_four_space_indented_code():
+    content = "Ví dụ:\n    • literal code bullet"
 
     assert app.format_response_markdown(content) == content
 

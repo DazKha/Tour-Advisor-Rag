@@ -123,23 +123,48 @@ def render_citation_label(metadata: dict[str, Any]) -> str:
 def response_status_label(status: str) -> str:
     """Translate internal response statuses into concise, display-only Vietnamese labels."""
     labels = {
-        "answered": "Đã trả lời",
-        "clarification_needed": "Cần làm rõ",
-        "conflict": "Có thông tin chưa thống nhất",
-        "unsupported": "Chưa có đủ thông tin",
-        "escalate": "Cần nhân viên Vietravel hỗ trợ",
+        "answered": "Đã tìm thấy thông tin",
+        "clarification_needed": "Cần thêm thông tin",
+        "conflict": "Có thông tin cần xác nhận",
+        "unsupported": "Chưa đủ thông tin",
+        "escalate": "Cần Vietravel hỗ trợ",
     }
     return labels.get(status, "Không xác định")
 
 
 def format_response_markdown(content: str) -> str:
-    """Convert only line-leading Unicode bullets into spaced CommonMark list items."""
+    """Convert prose bullets into CommonMark while preserving code examples."""
     if "•" not in content:
         return content
 
     lines = content.split("\n")
     first_bullet_index = None
+    fence_char = None
+    fence_length = 0
     for index, line in enumerate(lines):
+        leading_spaces = len(line) - len(line.lstrip(" "))
+        stripped = line[leading_spaces:]
+        if fence_char:
+            if (
+                leading_spaces <= 3
+                and stripped.startswith(fence_char * fence_length)
+                and stripped[len(fence_char * fence_length) :].strip(" \t") == ""
+            ):
+                fence_char = None
+                fence_length = 0
+            continue
+
+        if leading_spaces <= 3:
+            marker = stripped[: len(stripped) - len(stripped.lstrip("`~"))]
+            if len(marker) >= 3 and len(set(marker)) == 1:
+                info = stripped[len(marker) :]
+                if marker[0] != "`" or "`" not in info:
+                    fence_char = marker[0]
+                    fence_length = len(marker)
+                    continue
+
+        if line.startswith(("    ", "\t")):
+            continue
         leading = line[: len(line) - len(line.lstrip(" \t"))]
         remainder = line[len(leading) :]
         if remainder.startswith("•"):
