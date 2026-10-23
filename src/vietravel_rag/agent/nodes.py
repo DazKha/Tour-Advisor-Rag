@@ -433,21 +433,21 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
             answer="Dạ, em chưa thể kiểm tra chỗ trống hoặc giá hiện hành theo thời gian thực. Anh/chị vui lòng liên hệ Vietravel để được xác nhận ạ.",
             citation_ids=[], conflicts=[],
         )
-        return {"response": answer.model_dump()}
+        return {"draft_response": answer.model_dump()}
     if status == "high_risk":
         answer = TourAnswer(
             status="escalate",
             answer="Dạ, yêu cầu này cần nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp. Em chưa thể xác nhận hay thực hiện thay ạ.",
             citation_ids=[], conflicts=[],
         )
-        return {"response": answer.model_dump()}
+        return {"draft_response": answer.model_dump()}
     if status == "insufficient":
         answer = TourAnswer(
             status="unsupported",
             answer="Dạ, em chưa tìm thấy đủ căn cứ trong tài liệu tour để trả lời chính xác ạ.",
             citation_ids=[], conflicts=[],
         )
-        return {"response": answer.model_dump()}
+        return {"draft_response": answer.model_dump()}
 
     approved = list(state.get("approved_chunks", []))
     evidence = "\n\n".join(

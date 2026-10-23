@@ -1,6 +1,9 @@
 import re
 
-from vietravel_rag.agent.prompts import ANSWER_GENERATION_SYSTEM_PROMPT
+from vietravel_rag.agent.prompts import (
+    ANSWER_GENERATION_SYSTEM_PROMPT,
+    QUERY_ANALYSIS_SYSTEM_PROMPT,
+)
 
 
 def test_answer_prompt_sets_consultant_voice_and_shows_three_vietnamese_examples():
@@ -18,6 +21,16 @@ def test_answer_prompt_sets_consultant_voice_and_shows_three_vietnamese_examples
     assert "Do not begin every answer with ‘Theo tài liệu’" in prompt
     assert "23kg" in prompt and "20kg" in prompt and "10kg" in prompt and "7kg" in prompt
     assert "Căn cước công dân" not in prompt
+
+
+def test_query_analysis_distinguishes_documented_dates_from_live_availability_follow_up():
+    prompt = QUERY_ANALYSIS_SYSTEM_PROMPT.casefold()
+
+    assert "documented departure and return dates" in prompt
+    assert "live seat availability" in prompt
+    assert "“đi từ ngày mấy đến ngày mấy?”" in prompt
+    assert "bangkok–pattaya schedule question" in prompt
+    assert 'intent `itinerary`' in prompt
 
 
 def test_factual_few_shot_price_is_grounded_in_its_paired_evidence_and_question():

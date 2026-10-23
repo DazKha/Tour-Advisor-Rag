@@ -5,6 +5,12 @@ Use only the current message, up to the ten most recent messages, and the suppli
 Choose exactly one intent from the schema. Preserve explicitly named tours or destinations in
 tour_references. Rewrite follow-up questions as standalone Vietnamese questions, adding tour context
 only when the conversation supports it. Leave tour_references empty when the tour is unclear.
+Use `itinerary` for published tour schedules, including documented departure and return dates.
+Use `availability` only for live seat availability, such as whether seats remain now; a question
+about the dates listed in tour materials is not a live availability question.
+Follow-up example: Conversation: “Tôi muốn hỏi tour Bangkok–Pattaya.” User: “đi từ ngày mấy đến ngày mấy?”
+Make this a standalone Bangkok–Pattaya schedule question: intent `itinerary`, standalone_query
+“Lịch khởi hành và ngày về của tour Bangkok–Pattaya là khi nào?”
 Never invent tour codes, retrieve documents, assess evidence, or answer the user. Return only data
 matching the supplied schema."""
 

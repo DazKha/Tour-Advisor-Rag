@@ -44,7 +44,7 @@ def make_chunk(chunk_id, content, code="thailand-bangkok-pattaya", section="pric
     )
 
 
-def invoke(model, analysis, evidence, answer, chunks, *, resolver=None, state=None, thread="one", sales_guidance=None):
+def invoke(model, analysis, evidence, answer, chunks, *, resolver=None, retriever=None, state=None, thread="one", sales_guidance=None):
     tour = Document(
         page_content="Tour Bangkok – Pattaya",
         metadata={"tour_code": "thailand-bangkok-pattaya", "document_type": "tour_summary"},
@@ -53,7 +53,7 @@ def invoke(model, analysis, evidence, answer, chunks, *, resolver=None, state=No
         {
             "model": model,
             "resolver": resolver or (lambda query: [tour]),
-            "retriever": FakeRetriever(chunks),
+            "retriever": retriever or FakeRetriever(chunks),
             "conflicts": [
                 {
                     "tour_code": "danang-central-5d4n",
@@ -257,6 +257,90 @@ def test_graph_routes_live_availability_to_realtime_required():
     assert result["evidence_status"] == "realtime_required"
     assert result["response"]["status"] == "escalate"
     assert result["response"]["answer"].startswith("Dạ,")
+
+
+def test_current_deterministic_response_replaces_prior_turn_draft():
+    price = make_chunk("price-1", "Giá tour 8.990.000đ")
+    model = FakeModel([
+        QueryAnalysis(intent="price", tour_references=[], standalone_query="Giá tour Bangkok"),
+        TourAnswer(status="answered", answer="Giá tour là 8.990.000đ.", citation_ids=["price-1"], conflicts=[]),
+        QueryAnalysis(intent="availability", tour_references=[], standalone_query="Tour còn chỗ hôm nay không?"),
+    ])
+    tour = Document(
+        page_content="Tour Bangkok – Pattaya",
+        metadata={"tour_code": "thailand-bangkok-pattaya", "document_type": "tour_summary"},
+    )
+    graph = build_graph({
+        "model": model,
+        "resolver": lambda query: [tour],
+        "retriever": FakeRetriever([price]),
+        "conflicts": [],
+        "sales_guidance": [],
+    })
+    invoke_turn(graph, "Giá tour Bangkok bao nhiêu?", "availability-follow-up")
+    result = invoke_turn(graph, "Tour còn chỗ hôm nay không?", "availability-follow-up")
+
+    assert result["response"]["status"] == "escalate"
+    assert "thời gian thực" in result["response"]["answer"]
+    assert result["response"]["citation_ids"] == []
+    assert model.schemas == [QueryAnalysis, TourAnswer, QueryAnalysis]
+
+
+def test_documented_departure_date_follow_up_keeps_tour_and_overview_citation():
+    overview = make_chunk(
+        "overview-1",
+        "Ngày khởi hành: 26/03/2027. Ngày về: 30/03/2027.",
+        section="tour_overview",
+    )
+
+    class ItineraryRetriever(FakeRetriever):
+        def get_full_itinerary(self, tour_code):
+            assert tour_code == "thailand-bangkok-pattaya"
+            return overview
+
+    model = FakeModel([
+        QueryAnalysis(
+            intent="itinerary",
+            tour_references=[],
+            standalone_query="Lịch trình tour Bangkok – Pattaya như thế nào?",
+        ),
+        TourAnswer(
+            status="answered",
+            answer="Tour Bangkok – Pattaya có lịch trình tham quan theo chương trình.",
+            citation_ids=["overview-1"],
+            conflicts=[],
+        ),
+        QueryAnalysis(
+            intent="itinerary",
+            tour_references=[],
+            standalone_query="Lịch khởi hành và ngày về của tour Bangkok – Pattaya là khi nào?",
+        ),
+        TourAnswer(
+            status="answered",
+            answer="Tour khởi hành ngày 26/03/2027 và về ngày 30/03/2027.",
+            citation_ids=["overview-1"],
+            conflicts=[],
+        ),
+    ])
+
+    tour = Document(
+        page_content="Tour Bangkok – Pattaya",
+        metadata={"tour_code": "thailand-bangkok-pattaya", "document_type": "tour_summary"},
+    )
+    graph = build_graph({
+        "model": model,
+        "resolver": lambda query: [tour],
+        "retriever": ItineraryRetriever([overview]),
+        "conflicts": [],
+        "sales_guidance": [],
+    })
+    invoke_turn(graph, "Tôi muốn xem lịch trình tour Bangkok – Pattaya.", "departure-date-follow-up")
+    result = invoke_turn(graph, "đi từ ngày mấy đến ngày mấy?", "departure-date-follow-up")
+
+    assert "26/03/2027" in result["response"]["answer"]
+    assert "30/03/2027" in result["response"]["answer"]
+    assert result["active_tour_codes"] == ["thailand-bangkok-pattaya"]
+    assert result["response"]["citation_ids"] == ["overview-1"]
 
 
 def test_graph_routes_current_price_to_realtime_required():
