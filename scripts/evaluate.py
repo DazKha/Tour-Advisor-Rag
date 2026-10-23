@@ -121,8 +121,10 @@ def _graph(settings: Settings):
     catalog.relevance_margin = settings.tour_resolution_margin
 
     class Retriever:
-        def retrieve(self, query, tour_codes, *, comparison=False):
-            return retrieve_evidence(query, tour_codes, knowledge, comparison=comparison)
+        def retrieve(self, query, tour_codes, *, intent=None, comparison=False):
+            return retrieve_evidence(
+                query, tour_codes, knowledge, intent=intent, comparison=comparison
+            )
 
         def get_full_itinerary(self, tour_code):
             return get_full_itinerary(tour_code, catalog)

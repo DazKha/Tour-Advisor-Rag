@@ -228,15 +228,28 @@ def _adjacent_chunk(state: AgentState, retriever, analysis: QueryAnalysis) -> Do
     )
 
 
-def _retrieve(retriever, query: str, codes: list[str], comparison: bool) -> list[Document]:
+def _retrieve(
+    retriever, query: str, codes: list[str], intent: str, comparison: bool
+) -> list[Document]:
+    try:
+        parameters = signature(retriever.retrieve if hasattr(retriever, "retrieve") else retriever).parameters.values()
+    except (TypeError, ValueError):
+        parameters = ()
+    supports_intent = any(
+        parameter.name == "intent" or parameter.kind == Parameter.VAR_KEYWORD
+        for parameter in parameters
+    )
+    options = {"comparison": comparison}
+    if supports_intent:
+        options["intent"] = intent
     if hasattr(retriever, "retrieve"):
-        return list(retriever.retrieve(query, codes, comparison=comparison))
+        return list(retriever.retrieve(query, codes, **options))
     if callable(retriever):
-        return list(retriever(query, codes, comparison=comparison))
+        return list(retriever(query, codes, **options))
     if hasattr(retriever, "similarity_search"):
         from vietravel_rag.retrieval.retriever import retrieve_evidence
 
-        return list(retrieve_evidence(query, codes, retriever, comparison=comparison))
+        return list(retrieve_evidence(query, codes, retriever, intent=intent, comparison=comparison))
     raise TypeError("retriever must be callable or provide retrieve()")
 
 
@@ -270,6 +283,7 @@ def retrieve_node(state: AgentState, retriever) -> dict[str, Any]:
         retriever,
         analysis.standalone_query,
         codes,
+        analysis.intent,
         comparison=_comparison_requested(analysis),
     )
     known = {_document_key(doc) for doc in chunks}
