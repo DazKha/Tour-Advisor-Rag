@@ -179,3 +179,48 @@ No file under `raw_data/` or `reference/` was edited, moved, renamed, or deleted
 
 - Code, tests, validator, and rebuilt artifacts: `b923a9a8c413ce2e6333b4b1788d35f65be1fdef`
 - Round-one report update: recorded in the follow-up documentation commit.
+
+## Fix round 2/5 — exact curated conflict invariant
+
+### RED evidence
+
+Added focused tests in `tests/ingestion/test_validation.py` before changing production code. The tests cover an empty conflict list; wrong tour, topic, and resolution; a missing baggage claim; changed claim text that still appears on the cited page; a wrong page with internally consistent per-page provenance; and a wrong stable chunk ID whose replacement chunk contains the cited claim.
+
+```text
+.venv/bin/python -m pytest tests/ingestion/test_validation.py -q
+8 failed, 8 passed
+```
+
+All eight new cases failed because the validator accepted each mutated/empty curated record. The existing page-citation regression continued passing.
+
+### GREEN implementation and verification
+
+The validator now requires the conflict artifact to equal the one curated Đà Nẵng baggage record, including exact tour/topic, both exact claim texts, exact pages, stable chunk IDs, and `require_human_confirmation`. It still independently checks that each claim's text exists in the exact `page_texts[page]` for its cited chunk. No chunking, extraction, or conflict artifact content was changed in this round.
+
+```text
+.venv/bin/python -m pytest tests/ingestion/test_validation.py -q
+16 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+
+.venv/bin/python scripts/ingest.py --build-artifacts
+PASS; chunks=80; catalog=8; section counts: cancellation_standard=4, child_price=4, contact=4, excluded=4, force_majeure=4, included=4, itinerary=18, payment=4, price=4, registration_notes=17, tour_notes=3, tour_overview=4, visa=6; artifacts=5
+
+.venv/bin/python scripts/audit_chunks.py
+PASS; chunks=80; catalog=8; sales_guidance=20; conflicts=1; unclassified=0
+
+.venv/bin/python -m pytest tests/ingestion -q
+29 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+```
+
+### Artifact review and counts
+
+Regenerated and audited all five artifacts: `tour_chunks.jsonl` (80 chunks), `tour_catalog.jsonl` (8 records), `sales_guidance.json` (20 scenarios), `conflicts.json` (1 exact curated record), and `chunking_report.json` (section summary and review decisions). Manually checked that the conflict artifact still contains both claims exactly as prescribed: page 3, `danang-central-5d4n_included_01`, “Hành lý ký gửi 23kg, xách tay 10kg/khách”; and page 4, `danang-central-5d4n_registration_notes_01`, “xách tay dưới 7kg/1khách”. Both strings remain present in their cited `page_texts` values. Audit reloaded and validated both the sales and conflict artifacts.
+
+The audit continues to report two oversized cancellation-standard units (3,408 characters each); they remain complete policy schedules. Cancellation chunking was not changed in this round, so the previously noted cancellation count discrepancy was not addressed here.
+
+No source PDF, spreadsheet, or file under `raw_data/` or `reference/` was changed. No `.env` file was read.
+
+### Round-two concerns and commits
+
+- Seven PyMuPDF/SWIG deprecation warnings persist; all tests and artifact checks pass.
+- Code and tests: `acb3f7d` (`Validate exact curated baggage conflict`). The five generated artifact files were rebuilt and verified unchanged; the prescribed conflict record and stable references remained identical, so no artifact content changes were needed.
+- This round-two report update: committed in the follow-up report commit.
