@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Literal, TypedDict
 
+from langchain_core.documents import Document
+
 from pydantic import BaseModel, Field
 
 
@@ -86,9 +88,12 @@ class TourAnswer(BaseModel):
 
 class AgentState(TypedDict, total=False):
     messages: list
-    query_analysis: dict | None
+    query_analysis: QueryAnalysis | dict | None
+    route: Literal["safe_response", "general", "clarification", "unsupported", "retrieve"] | None
+    tour_candidates: list[Document]
+    tour_summaries: list[Document]
     active_tour_codes: list[str]
-    retrieved_chunks: list[dict]
+    retrieved_chunks: list[Document]
     evidence_status: str | None
     last_intent: str | None
     last_citation_ids: list[str]

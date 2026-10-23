@@ -1,7 +1,9 @@
+from typing import get_type_hints
+
 from langchain_core.documents import Document
 
-from vietravel_rag.models import QueryAnalysis
 from vietravel_rag.agent.nodes import resolve_tour_node, retrieve_node
+from vietravel_rag.models import AgentState, QueryAnalysis
 
 
 def analysis(intent="price", refs=None, query="Giá tour bao nhiêu?"):
@@ -203,3 +205,13 @@ def test_recommendation_and_explicit_full_program_add_full_itinerary():
             Retriever(),
         )
         assert full in result["retrieved_chunks"]
+
+
+def test_resolver_outputs_are_declared_in_langgraph_state_contract():
+    candidate = summary("tour-a", "Tour A")
+    result = resolve_tour_node({"query_analysis": analysis()}, lambda query: [candidate])
+
+    assert set(result).issubset(get_type_hints(AgentState))
+    assert result["tour_candidates"] == [candidate]
+    assert result["tour_summaries"] == [candidate]
+    assert result["route"] == "retrieve"
