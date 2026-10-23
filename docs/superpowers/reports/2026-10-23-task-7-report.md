@@ -32,6 +32,8 @@
 - Forbidden-claim rate: 0.0000
 - Latency: p50 7,408.542 ms; p95 15,095.393 ms
 
+`citation_validity` is conditional on a citation being emitted: it measures the fraction of emitted citation IDs found in retrieved IDs. It does not measure whether an answer that should cite a source actually emitted one, so it is not a citation coverage or completeness metric.
+
 The cost and deterministic summary use the 30 attempted cases as the projection denominator; one graph case failed before a normal answer was produced. The cost includes DeepSeek Ragas judge tokens, including the completed portion of judging before balance errors.
 
 ## Verification
@@ -41,6 +43,8 @@ The cost and deterministic summary use the 30 attempted cases as the projection 
 - Full suite: `.venv/bin/python -m pytest -q` — 170 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
 - `.venv/bin/ruff check src/vietravel_rag/evaluation scripts/evaluate.py tests/evaluation` — passed.
 - `git diff --check` — passed.
+- Post-review serialization regression: recursively replace NaN and positive/negative infinity with JSON `null`, then parse with the standard library's strict constant rejection. Both committed result artifacts were rewritten through the sanitizer without rerunning providers.
+- Final focused suite: 9 passed. Final full suite: 171 passed; 7 existing PyMuPDF/SWIG deprecation warnings. Ruff and `git diff --check` passed again.
 
 ## Safety and Limits
 

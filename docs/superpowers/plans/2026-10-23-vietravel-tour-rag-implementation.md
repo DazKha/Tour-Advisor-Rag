@@ -958,6 +958,8 @@ git commit -m "test: add RAG and safety evaluation"
 - [x] Record actual run outputs in `results/eval_results.json` and `results/eval_summary.json`; do not treat missing Ragas metric values as scores.
 - [x] Full `.venv` test suite: 170 passed, 7 existing PyMuPDF/SWIG deprecation warnings. Task 7 Ruff and `git diff --check` passed.
 - [ ] Live acceptance remains partial because of the single graph parser error and DeepSeek balance limit; no rerun was attempted after the provider reported insufficient balance.
+- [x] Post-review cleanup: recursively sanitize non-finite result values to JSON `null`, enforce `allow_nan=false`, and strictly parse both rewritten real-run artifacts without a provider rerun.
+- [x] Clarify that citation validity is conditional on emitted citations and does not measure citation coverage/completeness. Final focused tests: 9 passed; final full suite: 171 passed; Ruff and diff check passed.
 
 ---
 
