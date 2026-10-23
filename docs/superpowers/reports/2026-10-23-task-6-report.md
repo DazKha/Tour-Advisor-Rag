@@ -1,7 +1,7 @@
 # Task 6 Report: Streamlit Multi-Turn Demo
 
 **Date:** 2026-10-23
-**Status:** Implemented and locally verified; provider integration smoke completed with clarification-only scenario outcomes.
+**Status:** Implemented and locally verified; the latest provider smoke is mixed, with one intermittent price-answer failure.
 
 ## Delivered
 
@@ -60,5 +60,20 @@
 ## Scope
 
 - No `.env` contents or provider credentials were read or printed.
-- No external provider calls were made.
 - `raw_data/`, `reference/`, and synchronized project source files were not modified.
+
+## Review Fix Round 3: Explicit Tour Reference Resolution
+
+- Root cause: `analyze_query()` preserved literal tour references, but the resolver node discarded them and always relied on semantic catalog scores. The observed Thailand/Đà Nẵng near-tie therefore triggered clarification even for explicit Bangkok–Pattaya or Đà Nẵng references.
+- Added Unicode, case, punctuation, dash, and whitespace normalization for matching extracted references against `TOUR_SOURCES` names and aliases. Exact matches now fetch `tour_summary` rows by tour code and document type, deduplicate aliases for one tour, and preserve two explicit tours for comparison. Missing or unresolved references keep semantic ranking and its near-tie clarification behavior.
+- Updated resolver injection to pass references when supported while preserving older one-argument fakes. Signature inspection selects the call shape; resolver-internal `TypeError` exceptions propagate unchanged.
+- RED/GREEN tests cover Bangkok–Pattaya with a forced semantic near-tie at the routing boundary, exact Đà Nẵng lookup, duplicate aliases, two-tour exact lookup, unresolved-reference fallback, and old injected-resolver compatibility.
+- Focused resolver/routing/query-analysis tests — 30 passed. Full suite — 152 passed; 7 existing PyMuPDF/SWIG deprecation warnings. Changed-file Ruff and `git diff --check` passed.
+- Sanitized provider rerun using separate sessions (child-price uses its own two-turn follow-up session):
+  1. Price: first run `status=unsupported`, `intent=price`, tour codes `thailand-bangkok-pattaya`, no citation IDs.
+  2. Child-price follow-up: `status=answered`, `intent=child_price`, tour codes `thailand-bangkok-pattaya`, citation IDs `thailand-bangkok-pattaya_child_price_01`, `thailand-bangkok-pattaya_price_01`.
+  3. Ambiguous itinerary: `status=clarification_needed`, `intent=itinerary`, tour codes `danang-central-5d4n`, `mekong-my-tho-ben-tre-can-tho`, no citation IDs.
+  4. Đà Nẵng baggage: `status=conflict`, `intent=baggage`, tour codes `danang-central-5d4n`, citation IDs `danang-central-5d4n_included_01`, `danang-central-5d4n_registration_notes_01`.
+  5. Availability: `status=escalate`, `intent=availability`, tour codes `thailand-bangkok-pattaya`, no citation IDs.
+- Price-stage check: one fresh isolated run had `evidence_status=sufficient` but ended `status=unsupported`, `intent=price`, tour code `thailand-bangkok-pattaya`, no citation IDs. A second isolated retry ended `status=answered`, `intent=price`, the same tour code, citation ID `thailand-bangkok-pattaya_price_01`. This points to an intermittent failure after evidence assessment; no further live retries or speculative changes were made.
+- No `.env` contents or provider credentials were read or printed. Provider output was limited to status, intent, tour codes, and citation IDs. `raw_data/`, `reference/`, and synchronized project source files were not modified.

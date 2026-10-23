@@ -824,6 +824,11 @@ git commit -m "feat: add Streamlit multi-turn demo"
 - [x] Add a DeepSeek-compatible JSON-mode structured-output adapter and strict regression for query analysis, evidence assessment, and answer generation.
 - [x] Run a sanitized live query-analysis smoke and five graph scenarios after the query-analysis call passed.
 - [ ] Demo acceptance remains incomplete: all five live scenarios returned `clarification_needed` with no citation IDs. Outcomes are recorded in the Task 6 report; the cause is not inferred.
+- [x] Resolve explicit tour references against curated source aliases before semantic fallback; fetch exact `tour_summary` metadata, deduplicate aliases, and preserve explicit comparisons.
+- [x] Preserve old one-argument injected resolver compatibility through signature inspection; verify that internal `TypeError` exceptions propagate.
+- [x] Verify exact Bangkok–Pattaya and Đà Nẵng resolution, alias deduplication, two-tour exact lookup, and unresolved-reference semantic fallback with red/green tests.
+- [x] Run the full `.venv` suite, changed-file Ruff, and diff check; record the sanitized five-scenario provider rerun in the Task 6 report.
+- [ ] Price demo acceptance remains intermittent: one rerun returned `unsupported` after `evidence_status=sufficient` with no citation IDs; an isolated retry returned `answered` with the Thailand price citation. No speculative follow-up patch was made.
 
 ---
 
