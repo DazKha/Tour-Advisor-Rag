@@ -67,3 +67,13 @@
 - `.venv/bin/pytest -q` — 129 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
 - Changed-file Ruff and `git diff --check` — passed; date, range, and currency regressions remain green.
 - No secret values or source-input directories were accessed.
+
+## Review Fix Round 5
+
+- RED: reproduced three omitted strict-less aliases (`less than`, `nhỏ hơn`, `ít hơn`) being accepted without their comparator, plus failures to normalize `not/no less/fewer/lower than` and `not/no greater/more/higher than` consistently.
+- GREEN: expanded the longest-match canonical vocabulary for all requested English/Vietnamese strict, inclusive, positive, and negated aliases. Added matrix-style scalar and ordered-range endpoint tests across `<`, `<=`, `>`, and `>=`.
+- Unknown comparative cues now produce stable `unknown:<phrase>` facts instead of default equality or range bounds. The rule is applied before and after numbers, and comparator lookup is confined to text after the previous numeric token to prevent bounds leaking into later claims.
+- Added a regression for the prior-range-to-percentage interaction; the graph child-price follow-up test passes.
+- `.venv/bin/pytest -q tests/guardrails/test_output_guard.py` — 49 passed.
+- `.venv/bin/pytest -q` — 137 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` — passed; no secrets or source-input directories were accessed.
