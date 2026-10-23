@@ -23,3 +23,9 @@
 
 - The live response was constrained to status and citation IDs; no answer body, credentials, or source text was emitted.
 - Runtime settings were consumed by the application for the live turn; no secret values were printed or logged. No source inputs were edited.
+
+## Suffix-bound correction
+
+- RED: `and above` was treated as strict `>` and `and below` as strict `<`, unlike their intended inclusive equivalents.
+- GREEN: both suffixes now normalize to inclusive `>=`/`<=`; regressions verify equivalent `or more`/`or less` phrasing and rejection of strict `over`/`under` claims.
+- Latest verification: 59 guardrail tests and 162 full-suite tests passed; changed-file Ruff and diff checks passed. The 7 existing PyMuPDF/SWIG deprecation warnings remain.
