@@ -269,6 +269,16 @@ def _all_itinerary_chunks(retriever, tour_code: str) -> list[Document]:
     return []
 
 
+def _requests_full_itinerary(state: AgentState, analysis: QueryAnalysis) -> bool:
+    messages = list(state.get("messages", []))
+    latest = _content(messages[-1]) if messages else ""
+    return any(
+        _FULL_PROGRAM.search(query)
+        for query in (analysis.standalone_query, latest)
+        if query
+    )
+
+
 def retrieve_node(state: AgentState, retriever) -> dict[str, Any]:
     """Fetch scoped evidence plus required catalog context and itinerary expansion."""
     analysis = _analysis(state)
@@ -283,7 +293,7 @@ def retrieve_node(state: AgentState, retriever) -> dict[str, Any]:
         comparison=_comparison_requested(analysis),
     )
     known = {_document_key(doc) for doc in chunks}
-    if analysis.intent == "itinerary" and _FULL_PROGRAM.search(analysis.standalone_query):
+    if analysis.intent == "itinerary" and _requests_full_itinerary(state, analysis):
         for code in codes:
             for itinerary_chunk in _all_itinerary_chunks(retriever, code):
                 key = _document_key(itinerary_chunk)

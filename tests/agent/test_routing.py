@@ -311,6 +311,35 @@ def test_recommendation_and_full_program_do_not_add_catalog_aggregates():
     assert calls == ["tour-a"]
 
 
+def test_full_program_detection_uses_original_question_when_analysis_rewrites_it():
+    day_chunks = [
+        Document(
+            f"Ngày {index}",
+            metadata={"chunk_id": f"day-{index}", "tour_code": "tour-a", "chunk_index": index},
+        )
+        for index in range(1, 6)
+    ]
+
+    class Retriever:
+        def retrieve(self, query, tour_codes, *, comparison=False):
+            return []
+
+        def get_all_itinerary_chunks(self, tour_code):
+            return day_chunks
+
+    result = retrieve_node(
+        {
+            "query_analysis": analysis(
+                "itinerary", query="Các điểm đến chính của tour Đà Nẵng?"
+            ),
+            "messages": ["Tour Đà Nẵng 5 ngày đi những đâu?"],
+            "active_tour_codes": ["tour-a"],
+        },
+        Retriever(),
+    )
+    assert result["retrieved_chunks"] == day_chunks
+
+
 def test_resolver_outputs_are_declared_in_langgraph_state_contract():
     candidate = summary("tour-a", "Tour A")
     result = resolve_tour_node({"query_analysis": analysis()}, lambda query: [candidate])
