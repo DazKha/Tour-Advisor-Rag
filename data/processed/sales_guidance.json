@@ -1,0 +1,182 @@
+[
+  {
+    "scenario_id": 1,
+    "intent": "price",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 2,
+    "intent": "price",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 3,
+    "intent": "price",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 4,
+    "intent": "recommend_tour",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 5,
+    "intent": "recommend_tour",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 6,
+    "intent": "child_price",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 7,
+    "intent": "recommend_tour",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 8,
+    "intent": "general",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 9,
+    "intent": "itinerary",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 10,
+    "intent": "general",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 11,
+    "intent": "payment",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 12,
+    "intent": "payment",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 13,
+    "intent": "general",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 14,
+    "intent": "visa",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 15,
+    "intent": "cancellation",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 16,
+    "intent": "general",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 17,
+    "intent": "baggage",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 18,
+    "intent": "general",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 19,
+    "intent": "availability",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  },
+  {
+    "scenario_id": 20,
+    "intent": "complaint",
+    "response_structure": "Acknowledge the question, establish the tour and relevant context, then answer from its official document.",
+    "required_action": "Ask a concise clarifying question when the tour or needed detail is missing.",
+    "prohibited_actions": [
+      "Do not state unverified prices, dates, availability, discounts, or policy terms."
+    ]
+  }
+]

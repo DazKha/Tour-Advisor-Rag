@@ -1,0 +1,19 @@
+[
+  {
+    "tour_code": "danang-central-5d4n",
+    "topic": "baggage",
+    "claims": [
+      {
+        "text": "23kg ký gửi, 10kg xách tay",
+        "page": 3,
+        "chunk_id": "danang-central-5d4n_included_01"
+      },
+      {
+        "text": "20kg ký gửi, dưới 7kg xách tay",
+        "page": 4,
+        "chunk_id": "danang-central-5d4n_registration_notes_01"
+      }
+    ],
+    "resolution": "require_human_confirmation"
+  }
+]

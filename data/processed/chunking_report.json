@@ -1,0 +1,78 @@
+{
+  "validation": {
+    "status": "PASS",
+    "errors": [],
+    "unclassified_sections": 0,
+    "chunk_count": 62,
+    "catalog_count": 8
+  },
+  "source_count": 4,
+  "page_counts": {
+    "danang-central-5d4n": 6,
+    "mekong-my-tho-ben-tre-can-tho": 6,
+    "thailand-bangkok-pattaya": 6,
+    "china-lijiang-dali-shangrila": 10
+  },
+  "section_counts": {
+    "cancellation_holiday": 4,
+    "cancellation_standard": 4,
+    "child_price": 4,
+    "excluded": 4,
+    "force_majeure": 8,
+    "included": 4,
+    "itinerary": 18,
+    "payment": 4,
+    "price": 4,
+    "registration_notes": 4,
+    "tour_overview": 4
+  },
+  "reviewed_sections": [
+    "price",
+    "child_price",
+    "baggage in included and registration_notes",
+    "payment",
+    "cancellation_standard",
+    "cancellation_holiday"
+  ],
+  "reviewed_chunk_counts": {
+    "price": 4,
+    "child_price": 4,
+    "payment": 4,
+    "cancellation_standard": 4,
+    "cancellation_holiday": 4
+  },
+  "baggage_claims_reviewed": 2,
+  "oversized_semantic_units": [
+    {
+      "chunk_id": "danang-central-5d4n_registration_notes_01",
+      "section_type": "registration_notes",
+      "characters": 6554
+    },
+    {
+      "chunk_id": "mekong-my-tho-ben-tre-can-tho_registration_notes_01",
+      "section_type": "registration_notes",
+      "characters": 6554
+    }
+  ],
+  "oversized_review_decisions": [
+    {
+      "chunk_id": "danang-central-5d4n_registration_notes_01",
+      "decision": "retain intact; source registration and travel conditions form one connected section",
+      "page_range": "3-5"
+    },
+    {
+      "chunk_id": "mekong-my-tho-ben-tre-can-tho_registration_notes_01",
+      "decision": "retain intact; source registration and travel conditions form one connected section",
+      "page_range": "3-5"
+    }
+  ],
+  "removed_content": [
+    "standalone page numbers",
+    "Xem chương trình tour UI text",
+    "exact adjacent duplicate extraction spans"
+  ],
+  "source_conflicts_preserved": [
+    "Đà Nẵng baggage claims on pages 3 and 4"
+  ],
+  "sales_guidance_scenario_count": 20
+}
