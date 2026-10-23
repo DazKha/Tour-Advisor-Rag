@@ -241,6 +241,117 @@ def test_changing_strict_range_bound_to_inclusive_is_rejected():
     assert result.status == "unsupported"
 
 
+def test_greater_than_start_bound_cannot_replace_from_minimum_range():
+    result = validate_answer(
+        answer("More than 5 to 12 years old.", ["age"]),
+        [chunk("age", "From 5 to 12 years old.")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_negated_strict_phrase_is_not_misread_as_its_suffix():
+    result = validate_answer(
+        answer("Under 12 years old.", ["age"]),
+        [chunk("age", "Not under 12 years old.")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_more_than_and_greater_than_are_equivalent_strict_bounds():
+    result = validate_answer(
+        answer("Greater than 5 people.", ["capacity"]),
+        [chunk("capacity", "More than 5 people.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_negated_minimum_synonyms_are_equivalent():
+    result = validate_answer(
+        answer("Không dưới 5 khách.", ["capacity"]),
+        [chunk("capacity", "No less than 5 people.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_negated_maximum_synonyms_are_equivalent():
+    result = validate_answer(
+        answer("Không quá 5 khách.", ["capacity"]),
+        [chunk("capacity", "No more than 5 people.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_prefix_currency_codes_match_suffix_currency_forms():
+    vnd = validate_answer(
+        answer("Giá 8.990.000đ.", ["price"]),
+        [chunk("price", "Giá VND 8,990,000.")],
+    )
+    usd = validate_answer(
+        answer("Giá USD 100.", ["usd-price"]),
+        [chunk("usd-price", "Giá $100.")],
+    )
+
+    assert vnd.status == "answered"
+    assert usd.status == "answered"
+
+
+def test_comparator_vocabulary_normalizes_all_strict_synonyms():
+    cases = [
+        ("More than 5 people.", "Greater than 5 people."),
+        ("Over 5 people.", "Above 5 people."),
+        ("Trên 5 khách.", "More than 5 people."),
+        ("Under 5 years old.", "Below 5 years old."),
+        ("Below 5 years old.", "Dưới 5 tuổi."),
+    ]
+
+    for index, (evidence, claim) in enumerate(cases):
+        result = validate_answer(answer(claim, [str(index)]), [chunk(str(index), evidence)])
+        assert result.status == "answered", (evidence, claim)
+
+
+def test_comparator_vocabulary_normalizes_all_inclusive_minimum_synonyms():
+    cases = [
+        ("At least 5 people.", "Not under 5 people."),
+        ("No less than 5 people.", "Không dưới 5 khách."),
+        ("Not under 5 people.", "Tối thiểu 5 khách."),
+        ("Từ 5 khách.", "From 5 people."),
+        ("Ít nhất 5 khách.", "At least 5 people."),
+    ]
+
+    for index, (evidence, claim) in enumerate(cases):
+        result = validate_answer(answer(claim, [str(index)]), [chunk(str(index), evidence)])
+        assert result.status == "answered", (evidence, claim)
+
+
+def test_comparator_vocabulary_normalizes_all_inclusive_maximum_synonyms():
+    cases = [
+        ("At most 5 people.", "No more than 5 people."),
+        ("No more than 5 people.", "Not over 5 people."),
+        ("Not over 5 people.", "Không quá 5 khách."),
+        ("Tối đa 5 khách.", "Up to 5 people."),
+        ("Đến 5 khách.", "To 5 people."),
+        ("Tới 5 khách.", "At most 5 people."),
+    ]
+
+    for index, (evidence, claim) in enumerate(cases):
+        result = validate_answer(answer(claim, [str(index)]), [chunk(str(index), evidence)])
+        assert result.status == "answered", (evidence, claim)
+
+
+def test_range_end_accepts_negated_inclusive_maximum_synonyms():
+    result = validate_answer(
+        answer("Trẻ từ 5 đến tối đa 12 tuổi.", ["age"]),
+        [chunk("age", "From 5 to no more than 12 years old.")],
+    )
+
+    assert result.status == "answered"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),

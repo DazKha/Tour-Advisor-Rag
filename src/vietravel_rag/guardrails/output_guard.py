@@ -80,23 +80,32 @@ _UNIT_PATTERN = re.compile(
     r"\s*(?P<unit>" + _UNIT_ALTERNATION + r")(?!\w)",
     re.IGNORECASE,
 )
+_COMPARATOR_ALIASES = {
+    "more than": ">", "greater than": ">", "over": ">", "above": ">", "trên": ">",
+    "under": "<", "below": "<", "dưới": "<",
+    "at least": ">=", "no less than": ">=", "not under": ">=", "tối thiểu": ">=",
+    "ít nhất": ">=", "không dưới": ">=", "from": ">=", "từ": ">=",
+    "at most": "<=", "no more than": "<=", "not over": "<=", "tối đa": "<=",
+    "không quá": "<=", "to": "<=", "đến": "<=", "tới": "<=", "up to": "<=",
+}
+_COMPARATOR_NAMES = tuple(sorted(_COMPARATOR_ALIASES, key=len, reverse=True))
+_COMPARATOR_ALTERNATION = "|".join(re.escape(name) for name in _COMPARATOR_NAMES)
+_CURRENCY_CODES = ("vnd", "usd", "eur", "gbp", "jpy", "cny", "rmb", "thb", "sgd", "krw", "aud", "cad", "php")
+_CURRENCY_PREFIX = re.compile(
+    r"(?:^|\s)(?P<unit>" + "|".join(sorted(_CURRENCY_CODES, key=len, reverse=True)) + r")\s*$",
+    re.IGNORECASE,
+)
 _RANGE_NUMBER = re.compile(
     r"(?<!\d)(?P<start>\d+(?:[.,]\d+)*)(?P<start_unit>\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))?"
     r"(?P<connector>\s*[-–—]\s*|\s*(?:đến|tới|to)\s*)"
-    r"(?P<end_qualifier>dưới|trên|under|over|below|above|ít\s+nhất|at\s+least|tối\s+đa|at\s+most)?\s*"
+    r"(?P<end_qualifier>" + _COMPARATOR_ALTERNATION + r")?\s*"
     r"(?P<end>\d+(?:[.,]\d+)*)(?=\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))",
     re.IGNORECASE,
 )
 _BOUND_PREFIX = re.compile(
-    r"(?:^|[\s,;:])(?P<qualifier>at\s+least|at\s+most|up\s+to|ít\s+nhất|tối\s+đa|"
-    r"dưới|under|below|trên|over|above|từ|from|đến|to)\s*$",
+    r"(?:^|[\s,;:])(?P<qualifier>" + _COMPARATOR_ALTERNATION + r")\s*$",
     re.IGNORECASE,
 )
-_BOUND_COMPARATORS = {
-    "dưới": "<", "under": "<", "below": "<", "trên": ">", "over": ">", "above": ">",
-    "ít nhất": ">=", "at least": ">=", "từ": ">=", "from": ">=",
-    "tối đa": "<=", "at most": "<=", "up to": "<=", "đến": "<=", "to": "<=",
-}
 _NUMBER = re.compile(r"(?<!\d)(?P<number>\d+(?:[.,]\d+)*)(?!\d)")
 _PROHIBITED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("bank_details", re.compile(r"\b(?:stk|số\s+tài\s+khoản|tài\s+khoản\s+(?:ngân\s+hàng|số)|chuyển\s+khoản\s+vào|bank\s+account)\b", re.IGNORECASE)),
@@ -150,8 +159,13 @@ def _decimal_value(value: str) -> Decimal | None:
 
 def _normalize_unit(unit: str | None, number_start: int, text: str) -> tuple[str, Decimal]:
     normalized = re.sub(r"\s+", " ", (unit or "").strip().casefold())
-    if not normalized and number_start > 0 and text[number_start - 1] in "$€£":
+    if not normalized and number_start > 0 and text[number_start - 1] in "$€£¥":
         normalized = text[number_start - 1]
+    if not normalized:
+        prefix = text[max(0, number_start - 12) : number_start]
+        currency_match = _CURRENCY_PREFIX.search(prefix)
+        if currency_match:
+            normalized = currency_match.group("unit").casefold()
     if normalized == "năm":
         unit = "age_year" if "tuổi" in text[max(0, number_start - 18) : number_start + 18].casefold() else "duration_year"
         return unit, Decimal(1)
@@ -164,13 +178,13 @@ def _bound_before(text: str, position: int, default: str = "=") -> str:
     if not match:
         return default
     qualifier = re.sub(r"\s+", " ", match.group("qualifier").casefold())
-    return _BOUND_COMPARATORS[qualifier]
+    return _COMPARATOR_ALIASES[qualifier]
 
 
 def _range_end_bound(match: re.Match[str]) -> str:
     qualifier = re.sub(r"\s+", " ", (match.group("end_qualifier") or "").casefold())
     if qualifier:
-        return _BOUND_COMPARATORS[qualifier]
+        return _COMPARATOR_ALIASES[qualifier]
     return "<="
 
 
