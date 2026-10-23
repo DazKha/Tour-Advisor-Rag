@@ -766,7 +766,7 @@ git commit -m "feat: add guarded LangGraph answer flow"
 - Consumes: `build_graph()`, `TourAnswer`, and retrieved citation metadata.
 - Produces: runnable Streamlit chat application and pure helper functions `render_citation_label(metadata)` and `build_session_config(session_id)`.
 
-- [ ] **Step 1: Write failing UI-helper tests**
+- [x] **Step 1: Write failing UI-helper tests**
 
 ```python
 def test_citation_label_contains_tour_section_and_page():
@@ -781,12 +781,12 @@ def test_citation_label_contains_tour_section_and_page():
 
 Also test a multi-page label such as `Trang 5–6` and stable session-thread configuration.
 
-- [ ] **Step 2: Run helper tests and verify failure**
+- [x] **Step 2: Run helper tests and verify failure**
 
 Run: `python -m pytest tests/test_app_helpers.py -v`<br>
 Expected: helpers do not exist.
 
-- [ ] **Step 3: Implement the chat UI**
+- [x] **Step 3: Implement the chat UI**
 
 The page must include:
 
@@ -808,7 +808,7 @@ Expected: all tests pass.
 Run: `streamlit run app.py`<br>
 Manually verify the five demo scenarios from the spec and save the exact prompts in README notes.
 
-- [ ] **Step 5: Commit the UI**
+- [x] **Step 5: Commit the UI**
 
 ```bash
 git add app.py .streamlit/config.toml tests/test_app_helpers.py
