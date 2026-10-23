@@ -74,6 +74,22 @@ def test_format_response_markdown_preserves_bullets_inside_tilde_fence():
     assert app.format_response_markdown(content) == content
 
 
+def test_format_response_markdown_resumes_after_longer_backtick_closing_fence():
+    content = "```text\n• literal code bullet\n````\n• prose bullet"
+
+    assert app.format_response_markdown(content) == (
+        "```text\n• literal code bullet\n````\n\n- prose bullet"
+    )
+
+
+def test_format_response_markdown_resumes_after_longer_tilde_closing_fence():
+    content = "~~~text\n• literal code bullet\n~~~~\n• prose bullet"
+
+    assert app.format_response_markdown(content) == (
+        "~~~text\n• literal code bullet\n~~~~\n\n- prose bullet"
+    )
+
+
 def test_format_response_markdown_preserves_four_space_indented_code():
     content = "Ví dụ:\n    • literal code bullet"
 

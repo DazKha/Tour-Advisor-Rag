@@ -145,10 +145,11 @@ def format_response_markdown(content: str) -> str:
         leading_spaces = len(line) - len(line.lstrip(" "))
         stripped = line[leading_spaces:]
         if fence_char:
+            closing_marker = stripped[: len(stripped) - len(stripped.lstrip(fence_char))]
             if (
                 leading_spaces <= 3
-                and stripped.startswith(fence_char * fence_length)
-                and stripped[len(fence_char * fence_length) :].strip(" \t") == ""
+                and len(closing_marker) >= fence_length
+                and stripped[len(closing_marker) :].strip(" \t") == ""
             ):
                 fence_char = None
                 fence_length = 0
