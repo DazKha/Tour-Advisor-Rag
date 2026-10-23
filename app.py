@@ -112,7 +112,9 @@ def load_graph_resources():
     graph = build_graph(
         {
             "model": get_chat_model(settings),
-            "resolver": lambda query: resolve_tours(query, catalog_store),
+            "resolver": lambda query, *, references=None: resolve_tours(
+                query, catalog_store, references=references
+            ),
             "retriever": retriever,
             "conflicts": "data/processed/conflicts.json",
             "sales_guidance": "data/processed/sales_guidance.json",

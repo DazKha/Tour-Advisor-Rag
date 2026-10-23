@@ -7,8 +7,11 @@ from langchain_core.embeddings import Embeddings
 
 from vietravel_rag.config import Settings
 from vietravel_rag.retrieval.index import build_collections
-from vietravel_rag.retrieval.resolver import get_full_itinerary, resolve_tours
-from vietravel_rag.retrieval.resolver import ItineraryLookupError
+from vietravel_rag.retrieval.resolver import (
+    ItineraryLookupError,
+    get_full_itinerary,
+    resolve_tours,
+)
 
 
 class FakeEmbeddings(Embeddings):
@@ -84,6 +87,115 @@ def test_catalog_search_excludes_full_itinerary(catalog_store):
 def test_bangkok_resolves_to_thailand(catalog_store):
     matches = resolve_tours("Bangkok", catalog_store, limit=3)
     assert matches[0].metadata["tour_code"] == "thailand-bangkok-pattaya"
+
+
+def test_explicit_bangkok_pattaya_reference_bypasses_semantic_near_tie(catalog_store):
+    matches = resolve_tours(
+        "Giá tour Bangkok – Pattaya bao nhiêu?",
+        catalog_store,
+        references=["Bangkok – Pattaya", "Bangkok", "Pattaya"],
+    )
+
+    assert [doc.metadata["tour_code"] for doc in matches] == ["thailand-bangkok-pattaya"]
+
+
+def test_explicit_danang_reference_resolves_exact_summary(catalog_store):
+    matches = resolve_tours(
+        "Hành lý tour Đà Nẵng",
+        catalog_store,
+        references=["ĐÀ   NẴNG"],
+    )
+
+    assert [doc.metadata["tour_code"] for doc in matches] == ["danang-central-5d4n"]
+
+
+def test_duplicate_explicit_aliases_are_deduplicated(catalog_store):
+    matches = resolve_tours(
+        "Giá Bangkok – Pattaya",
+        catalog_store,
+        references=["Bangkok – Pattaya", "Bangkok", "Pattaya", "bangkok"],
+    )
+
+    assert [doc.metadata["tour_code"] for doc in matches] == ["thailand-bangkok-pattaya"]
+
+
+def test_two_explicit_tour_references_return_both_exact_summaries(catalog_store):
+    matches = resolve_tours(
+        "So sánh Đà Nẵng với Bangkok",
+        catalog_store,
+        references=["Đà Nẵng", "Bangkok"],
+    )
+
+    assert [doc.metadata["tour_code"] for doc in matches] == [
+        "danang-central-5d4n",
+        "thailand-bangkok-pattaya",
+    ]
+
+
+def test_unmatched_reference_keeps_semantic_near_tie_behavior():
+    top = Document("top match", metadata={"tour_code": "tour-a", "document_type": "tour_summary"})
+    runner_up = Document("runner-up", metadata={"tour_code": "tour-b", "document_type": "tour_summary"})
+
+    class RankedStore:
+        relevance_floor = 0.65
+        relevance_margin = 0.30
+
+        def similarity_search_with_relevance_scores(self, query, *, k, filter):
+            return [(top, 0.7333), (runner_up, 0.5843)]
+
+    matches = resolve_tours("Giá tour Nhật Bản", RankedStore(), references=["Nhật Bản"])
+
+    assert [doc.metadata["tour_code"] for doc in matches] == ["tour-a", "tour-b"]
+
+
+def test_explicit_reference_resolves_before_semantic_near_tie_in_routing():
+    from vietravel_rag.agent.nodes import resolve_tour_node
+    from vietravel_rag.models import QueryAnalysis
+
+    thailand = Document(
+        "Thailand exact summary",
+        metadata={"tour_code": "thailand-bangkok-pattaya", "document_type": "tour_summary"},
+        id="thailand-summary",
+    )
+    danang = Document(
+        "Danang semantic runner-up",
+        metadata={"tour_code": "danang-central-5d4n", "document_type": "tour_summary"},
+    )
+
+    class NearTieStore:
+        relevance_floor = 0.65
+        relevance_margin = 0.30
+
+        def __init__(self):
+            self.semantic_searches = 0
+
+        def get(self, *, where):
+            assert {"tour_code": "thailand-bangkok-pattaya"} in where["$and"]
+            assert {"document_type": "tour_summary"} in where["$and"]
+            return {"ids": [thailand.id], "documents": [thailand.page_content], "metadatas": [thailand.metadata]}
+
+        def similarity_search_with_relevance_scores(self, query, *, k, filter):
+            self.semantic_searches += 1
+            return [(thailand, 0.7333), (danang, 0.5843)]
+
+    store = NearTieStore()
+    result = resolve_tour_node(
+        {
+            "query_analysis": QueryAnalysis(
+                intent="price",
+                tour_references=["Bangkok – Pattaya", "Bangkok", "Pattaya"],
+                standalone_query="Giá tour Bangkok – Pattaya bao nhiêu?",
+            )
+        },
+        store,
+    )
+
+    assert result["route"] == "retrieve"
+    assert [doc.metadata["tour_code"] for doc in result["tour_candidates"]] == [
+        "thailand-bangkok-pattaya"
+    ]
+    assert result["tour_candidates"][0].id == "thailand-summary"
+    assert store.semantic_searches == 0
 
 
 def test_broad_region_query_returns_candidates_for_clarification(catalog_store):

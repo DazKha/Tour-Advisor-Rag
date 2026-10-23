@@ -83,6 +83,62 @@ def test_one_candidate_updates_active_tour_and_multiple_require_clarification():
     ]
 
 
+def test_resolver_receives_explicit_references_when_supported():
+    candidate = summary("thailand-bangkok-pattaya")
+    calls = []
+
+    def resolver(query, *, references):
+        calls.append((query, references))
+        return [candidate]
+
+    result = resolve_tour_node(
+        {
+            "query_analysis": analysis(
+                refs=["Bangkok – Pattaya", "Bangkok"],
+                query="Giá tour Bangkok – Pattaya bao nhiêu?",
+            )
+        },
+        resolver,
+    )
+
+    assert result["route"] == "retrieve"
+    assert calls == [("Giá tour Bangkok – Pattaya bao nhiêu?", ["Bangkok – Pattaya", "Bangkok"])]
+
+
+def test_legacy_one_argument_resolver_remains_compatible():
+    candidate = summary("thailand-bangkok-pattaya")
+    calls = []
+
+    def resolver(query):
+        calls.append(query)
+        return [candidate]
+
+    result = resolve_tour_node(
+        {"query_analysis": analysis(refs=["Bangkok"], query="Giá Bangkok bao nhiêu?")},
+        resolver,
+    )
+
+    assert result["route"] == "retrieve"
+    assert calls == ["Giá Bangkok bao nhiêu?"]
+
+
+def test_resolver_internal_type_error_is_not_retried_as_legacy_signature():
+    calls = []
+
+    def resolver(query, *, references):
+        calls.append((query, references))
+        raise TypeError("failure inside resolver")
+
+    try:
+        resolve_tour_node({"query_analysis": analysis(refs=["Bangkok"])}, resolver)
+    except TypeError as error:
+        assert str(error) == "failure inside resolver"
+    else:
+        raise AssertionError("resolver TypeError should propagate")
+
+    assert len(calls) == 1
+
+
 def test_explicit_two_tour_comparison_resolves_with_both_candidates():
     candidates = [summary("tour-a"), summary("tour-b")]
 

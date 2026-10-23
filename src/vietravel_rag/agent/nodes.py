@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from inspect import Parameter, signature
 from typing import Any
 
 from langchain_core.documents import Document
@@ -111,12 +112,22 @@ def _analysis(state: AgentState) -> QueryAnalysis:
     return value if isinstance(value, QueryAnalysis) else QueryAnalysis.model_validate(value or {})
 
 
-def _resolve(resolver, query: str) -> list[Document]:
+def _resolve(resolver, query: str, references: list[str] | None = None) -> list[Document]:
     if callable(resolver):
+        try:
+            parameters = signature(resolver).parameters.values()
+        except (TypeError, ValueError):
+            parameters = ()
+        supports_references = any(
+            parameter.name == "references" or parameter.kind == Parameter.VAR_KEYWORD
+            for parameter in parameters
+        )
+        if supports_references:
+            return list(resolver(query, references=references or []))
         return list(resolver(query))
     from vietravel_rag.retrieval.resolver import resolve_tours
 
-    return list(resolve_tours(query, resolver))
+    return list(resolve_tours(query, resolver, references=references))
 
 
 def resolve_tour_node(state: AgentState, resolver) -> dict[str, Any]:
@@ -131,7 +142,7 @@ def resolve_tour_node(state: AgentState, resolver) -> dict[str, Any]:
     if _PRONOUNS.search(analysis.standalone_query) and len(active_codes) > 1:
         return {"route": "clarification", "tour_candidates": [], "active_tour_codes": active_codes}
 
-    candidates = _resolve(resolver, analysis.standalone_query)
+    candidates = _resolve(resolver, analysis.standalone_query, analysis.tour_references)
     if not candidates and analysis.tour_references:
         return {"route": "unsupported", "tour_candidates": []}
     if not candidates and len(active_codes) == 1:
