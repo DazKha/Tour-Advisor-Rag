@@ -6,6 +6,7 @@ import pytest
 
 from scripts.evaluate import (
     _write_json,
+    evaluation_cost_summary,
     load_cases,
     ragas_records,
     summarize_ragas_rows,
@@ -93,6 +94,20 @@ def test_cost_summary_uses_cli_prices_and_estimates_1000_questions():
     )
     assert summary["observed_cost_usd"] == 0.9
     assert summary["estimated_cost_per_1000_usd"] == 900.0
+
+
+def test_evaluation_cost_summary_separates_generation_from_ragas_judging():
+    summary = evaluation_cost_summary(
+        [{"input_tokens": 1000, "output_tokens": 500}],
+        {"input_tokens": 2000, "output_tokens": 1000},
+        input_price_per_million=0.3,
+        output_price_per_million=1.2,
+    )
+    assert summary["observed_cost_usd"] == 0.0009
+    assert summary["generation_observed_cost_usd"] == 0.0009
+    assert summary["estimated_cost_per_1000_usd"] == 0.9
+    assert summary["ragas_judge_cost_usd"] == 0.0018
+    assert summary["total_evaluation_cost_usd"] == 0.0027
 
 
 def test_forbidden_claim_and_numeric_rates_are_zero_for_empty_answers():

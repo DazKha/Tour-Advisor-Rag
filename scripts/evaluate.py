@@ -225,6 +225,36 @@ def summarize_ragas_rows(rows: list[dict]) -> dict:
     }
 
 
+def evaluation_cost_summary(
+    results: list[dict],
+    judge_usage: dict[str, int],
+    *,
+    input_price_per_million: float,
+    output_price_per_million: float,
+) -> dict:
+    """Keep per-question inference cost separate from one-off Ragas judge cost."""
+    generation = cost_summary(
+        results,
+        input_price_per_million=input_price_per_million,
+        output_price_per_million=output_price_per_million,
+    )
+    judge = cost_summary(
+        [judge_usage],
+        input_price_per_million=input_price_per_million,
+        output_price_per_million=output_price_per_million,
+    )
+    return {
+        **generation,
+        "generation_observed_cost_usd": generation["observed_cost_usd"],
+        "ragas_judge_input_tokens": judge["input_tokens"],
+        "ragas_judge_output_tokens": judge["output_tokens"],
+        "ragas_judge_cost_usd": judge["observed_cost_usd"],
+        "total_evaluation_cost_usd": round(
+            generation["observed_cost_usd"] + judge["observed_cost_usd"], 8
+        ),
+    }
+
+
 def run_ragas(cases: list[dict], results: list[dict], settings: Settings) -> dict:
     """Run Ragas 0.3 metrics using DeepSeek judge and Gemini embeddings."""
     from ragas import EvaluationDataset, evaluate
@@ -435,27 +465,16 @@ def main(argv: list[str] | None = None) -> int:
             ragas_result = run_ragas(cases, rows, settings)
         except Exception as exc:  # noqa: BLE001 - report the adapter failure class only
             metadata["ragas_error_type"] = type(exc).__name__
+    judge_usage = (ragas_result or {}).get("judge_usage", {"input_tokens": 0, "output_tokens": 0})
     deterministic.update(
-        cost_summary(
+        evaluation_cost_summary(
             rows,
+            judge_usage,
             input_price_per_million=args.input_price_per_million,
             output_price_per_million=args.output_price_per_million,
         )
     )
-    judge_usage = (ragas_result or {}).get("judge_usage", {"input_tokens": 0, "output_tokens": 0})
-    judge_cost = cost_summary(
-        [judge_usage],
-        input_price_per_million=args.input_price_per_million,
-        output_price_per_million=args.output_price_per_million,
-    )
-    deterministic["ragas_judge_input_tokens"] = judge_usage["input_tokens"]
-    deterministic["ragas_judge_output_tokens"] = judge_usage["output_tokens"]
-    deterministic["observed_cost_usd"] = round(
-        deterministic["observed_cost_usd"] + judge_cost["observed_cost_usd"], 8
-    )
-    deterministic["estimated_cost_per_1000_usd"] = round(
-        deterministic["observed_cost_usd"] * 1000 / len(rows) if rows else 0.0, 8
-    )
+    deterministic["cost_basis"] = "generation inference only; Ragas judge cost reported separately"
     metadata["deterministic_metrics"] = deterministic
     metadata["ragas"] = ragas_result
     _write_json(args.results_dir / "eval_results.json", rows)
