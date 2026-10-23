@@ -1,7 +1,9 @@
 .env
 .streamlit/secrets.toml
+.venv/
 chroma_db/
 __pycache__/
+.DS_Store
 .pytest_cache/
 .ruff_cache/
 eval_results/

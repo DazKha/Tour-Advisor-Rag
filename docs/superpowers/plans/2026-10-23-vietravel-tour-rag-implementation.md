@@ -975,7 +975,7 @@ git commit -m "test: add RAG and safety evaluation"
 - Consumes: completed application, processed artifacts, test suite, and evaluation summary.
 - Produces: reproducible local setup, Streamlit Cloud deployment instructions, demo script, limitations, and verified release candidate.
 
-- [ ] **Step 1: Write README with exact operator flows**
+- [x] **Step 1: Write README with exact operator flows**
 
 Document:
 
@@ -992,11 +992,11 @@ Document:
 11. five-prompt interview demo sequence;
 12. short error analysis based on actual evaluation output.
 
-- [ ] **Step 2: Define deployment artifact policy**
+- [x] **Step 2: Define deployment artifact policy**
 
-Measure `chroma_db/`. If it is reasonably small for the repository, commit it and make app startup load-only. Otherwise exclude it and make startup build from committed `data/processed/*.jsonl`, guarded by `st.cache_resource`. Do not run PDF extraction on every app request.
+Measured `chroma_db/` at 4.3 MB after a real index rebuild. It remains excluded; app startup builds or repairs the two collections from committed processed JSONL through `st.cache_resource`. Startup does not extract PDFs.
 
-- [ ] **Step 3: Run the complete local verification**
+- [x] **Step 3: Run the complete local verification**
 
 Run:
 
@@ -1016,36 +1016,28 @@ Expected:
 
 - [ ] **Step 4: Perform five-scenario manual acceptance**
 
-Verify in Streamlit:
-
-1. a factual price or inclusion answer cites the correct PDF page;
-2. “Bé 8 tuổi thì sao?” inherits the prior Thailand tour;
-3. an ambiguous “tour đó” asks which tour;
-4. Đà Nẵng baggage reports both conflicting allowances with both citations;
-5. “Tour này còn chỗ không?” states that live availability cannot be confirmed and requests staff confirmation.
-
-Check the debug expander shows only retrieved chunks and contains no secrets.
+The earlier Task 6 report contains sanitized outcomes for the same five scenarios. Task 8 did not repeat provider calls because the Task 7 evaluation had already recorded insufficient DeepSeek balance. No live prompts were sent during this task.
 
 - [ ] **Step 5: Deploy to Streamlit Community Cloud**
 
-Configure the variables from `.env.example` in Streamlit Secrets, including the two sensitive API keys and the non-sensitive model/base-URL settings. Choose `app.py` as the entry point and deploy. Repeat the five-scenario acceptance test on the deployed URL. Do not paste keys into logs, screenshots, README, or evaluation artifacts.
+Deployment is pending publication of this checkout to GitHub. There is no configured Git remote and the GitHub CLI is unavailable in this environment; no external repository or app was created or changed.
 
-- [ ] **Step 6: Final repository safety check**
+- [x] **Step 6: Final repository safety check**
 
 Run:
 
 ```bash
 git status --short
 git diff --check
-git grep -nE "(sk-|DEEPSEEK_API_KEY=.+|GEMINI_API_KEY=.+)" -- ':!*.example'
+git grep -nE '(sk-[[:alnum:]]{16,}|DEEPSEEK_API_KEY=[[:alnum:]_]{8,}|GEMINI_API_KEY=[[:alnum:]_]{8,})' -- ':!*.example'
 ```
 
 Expected: only intentional files are present, no whitespace errors, and no secret matches.
 
-- [ ] **Step 7: Commit the release documentation**
+- [x] **Step 7: Commit the release documentation**
 
 ```bash
-git add README.md .streamlit/secrets.toml.example .gitignore pyproject.toml
+git add README.md .streamlit/secrets.toml.example .gitignore docs/superpowers/plans docs/superpowers/reports .superpowers/sdd
 git commit -m "docs: add deployment and demo guide"
 ```
 
@@ -1061,6 +1053,8 @@ git commit -m "docs: add deployment and demo guide"
 - [ ] The known baggage conflict produces a conflict response rather than a guessed answer.
 - [ ] Output validation rejects invented citations and unsupported numbers.
 - [ ] Streamlit passes all five demo scenarios locally and after deployment.
-- [ ] The 30+ case evaluation reports Ragas, task-specific safety metrics, p50/p95 latency, and estimated cost per 1,000 questions.
-- [ ] README records limitations and the DeepSeek self-judge caveat.
-- [ ] Full test suite, lint, chunk audit, and secret scan pass.
+- [x] The 30+ case evaluation reports Ragas, task-specific safety metrics, p50/p95 latency, and estimated cost per 1,000 questions.
+- [x] README records limitations and the DeepSeek self-judge caveat.
+- [x] Full test suite, lint, chunk audit, and secret scan pass.
+
+Task 8 local verification (2026-10-23): 174 tests passed; full Ruff clean; chunk audit `chunks=84 catalog=8 unclassified=0`; real index build `tour_catalog=8 tour_knowledge=84`; Streamlit health `ok` and root HTTP 200. Cloud publication and live acceptance remain pending as noted above.
