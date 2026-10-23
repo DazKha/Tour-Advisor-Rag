@@ -815,6 +815,14 @@ git add app.py .streamlit/config.toml tests/test_app_helpers.py
 git commit -m "feat: add Streamlit multi-turn demo"
 ```
 
+#### Task 6 Review Fix Ledger
+
+- [x] Route each UI turn through `invoke_turn()` so the previous assistant answer is restored as an `AIMessage` in model-visible history.
+- [x] Keep rendered messages in Streamlit session state; reset clears messages and active tours and rotates the thread ID.
+- [x] Remove the unused UI `last_citation_ids` copy; the graph checkpoint remains authoritative for follow-up citation state.
+- [x] Verify with a two-turn real-graph/fake-model regression, reset regression, full test suite, Ruff, diff check, and headless health check.
+- [ ] Run the five provider-backed demo scenarios; deferred pending parent decision because this would call external model APIs.
+
 ---
 
 ### Task 7: Evaluation Dataset, Ragas, and Safety Metrics

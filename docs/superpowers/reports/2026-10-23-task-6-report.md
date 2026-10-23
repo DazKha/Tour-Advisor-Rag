@@ -21,6 +21,17 @@
 - Headless Streamlit started on port 8765; `/_stcore/health` returned `ok`, and `/` returned the Streamlit page.
 - No provider prompts were sent. The five scenarios below are a demo script only; their live outcomes remain unverified because exercising them would call external model services.
 
+## Review Fix Round 1: Multi-Turn History
+
+- RED: a two-turn UI regression using the real LangGraph with a recording fake model showed the second query omitted the first assistant answer from model-visible history.
+- Root cause: `_run_turn()` invoked `graph.invoke()` with only the current prompt. The graph checkpoint accumulates user messages, but the response is stored separately; only `invoke_turn()` restores that response as an `AIMessage` before invoking the next turn.
+- GREEN: `_run_turn()` now uses `invoke_turn(graph, prompt, session_id)`. A regression verifies that the second model analysis sees the prior assistant answer.
+- Added a reset regression: reset clears rendered messages and active tours, generates a new thread identity, and therefore isolates the next graph checkpoint.
+- Removed the redundant UI `last_citation_ids` state; citation continuity remains owned by the LangGraph checkpoint.
+- Focused helper suite — 5 passed. Full suite — 142 passed, with the same 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` passed. Headless Streamlit restarted and `/_stcore/health` returned `ok`.
+- Live provider-backed scenarios remain unrun pending parent decision; no provider API calls were made.
+
 ## Five-Scenario Demo Script (Not Executed)
 
 1. Normal factual answer with citations: `Giá tour Bangkok – Pattaya bao nhiêu?`
