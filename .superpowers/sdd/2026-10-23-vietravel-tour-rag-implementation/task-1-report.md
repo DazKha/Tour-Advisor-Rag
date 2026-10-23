@@ -2,7 +2,7 @@
 
 ## Status
 
-DONE_WITH_CONCERNS
+DONE
 
 ## Files changed
 
@@ -50,7 +50,8 @@ Ruff passed with no violations.
 ## Commits
 
 - Scaffold/contracts commit: `26892ef920cf9ab1590529367e4f48499ec8ffbc`.
-- The report is committed separately so it can record the scaffold commit hash.
+- Report commit: `591f8f80ba205e6ca13f653d8f1b9654a3abc71d`.
+- Supported-runtime evidence update: to be recorded after commit.
 
 ## Self-review findings
 
@@ -62,4 +63,16 @@ Ruff passed with no violations.
 
 ## Concerns
 
-- Re-run the contract tests in the project-supported Python 3.11+ environment after dependencies are installed there. The local 3.12 interpreter could not collect tests because `pydantic_settings` is unavailable in that interpreter.
+- The initial report's test run used Python 3.9 and was not sufficient to establish supported-runtime compatibility. This evidence gap is closed by the Python 3.12.6 run below.
+
+## Supported-runtime evidence update (review round 1)
+
+Evidence-only round; no application code changes were required. Created an isolated environment at `/tmp/vietravel-task1-venv`, outside the repository, with Python 3.12.6. Installed only `pytest`, `ruff`, and `pydantic-settings` plus their dependencies needed for these focused checks. No secrets were read or printed.
+
+Commands and results:
+
+- `/tmp/vietravel-task1-venv/bin/python --version` — `Python 3.12.6`.
+- `/tmp/vietravel-task1-venv/bin/python -m pytest tests/test_config.py tests/test_models.py -v` — all 3 tests passed.
+- `/tmp/vietravel-task1-venv/bin/ruff check src/vietravel_rag/config.py src/vietravel_rag/models.py tests/test_config.py tests/test_models.py` — `All checks passed!`.
+
+The supported-runtime validation concern is resolved.
