@@ -352,6 +352,123 @@ def test_range_end_accepts_negated_inclusive_maximum_synonyms():
     assert result.status == "answered"
 
 
+def test_less_than_scalar_aliases_reject_dropped_comparators():
+    cases = [
+        ("Less than 12 years old.", "12 years old."),
+        ("Nhỏ hơn 12 tuổi.", "12 tuổi."),
+        ("Ít hơn 5 khách.", "5 khách."),
+    ]
+
+    for evidence, claim in cases:
+        result = validate_answer(answer(claim, ["bound"]), [chunk("bound", evidence)])
+        assert result.status == "unsupported", (evidence, claim)
+
+
+def test_positive_less_than_aliases_match_strict_under():
+    aliases = ("less than", "fewer than", "lower than", "smaller than", "nhỏ hơn", "ít hơn", "thấp hơn")
+
+    for index, alias in enumerate(aliases):
+        result = validate_answer(
+            answer(f"{alias.title()} 5 people.", [str(index)]),
+            [chunk(str(index), "Under 5 people.")],
+        )
+        assert result.status == "answered", alias
+
+
+def test_negated_less_than_aliases_match_inclusive_minimum():
+    aliases = (
+        "not less than", "no less than", "not fewer than", "no fewer than",
+        "not lower than", "no lower than", "not smaller than", "no smaller than",
+        "không nhỏ hơn", "không ít hơn", "không thấp hơn",
+    )
+
+    for index, alias in enumerate(aliases):
+        result = validate_answer(
+            answer(f"{alias.title()} 5 people.", [str(index)]),
+            [chunk(str(index), "At least 5 people.")],
+        )
+        assert result.status == "answered", alias
+
+
+def test_negated_greater_than_aliases_match_inclusive_maximum():
+    aliases = (
+        "not greater than", "no greater than", "not more than", "no more than",
+        "not higher than", "no higher than", "không lớn hơn", "không nhiều hơn", "không cao hơn",
+    )
+
+    for index, alias in enumerate(aliases):
+        result = validate_answer(
+            answer(f"{alias.title()} 5 people.", [str(index)]),
+            [chunk(str(index), "At most 5 people.")],
+        )
+        assert result.status == "answered", alias
+
+
+def test_comparator_aliases_are_preserved_on_both_range_endpoints():
+    cases = [
+        ("More than 5 to 12 people.", "Over 5 to 12 people."),
+        ("Less than 5 to 12 people.", "Under 5 to 12 people."),
+        ("From 5 to less than 12 people.", "Từ 5 đến dưới 12 khách."),
+        ("Not less than 5 to 12 people.", "At least 5 to 12 people."),
+        ("Not greater than 5 to 12 people.", "At most 5 to 12 people."),
+        ("From 5 to greater than 12 people.", "From 5 to above 12 people."),
+        ("From 5 to not less than 12 people.", "From 5 to at least 12 people."),
+        ("From 5 to not greater than 12 people.", "Từ 5 đến tối đa 12 khách."),
+        ("From 5 to 12 people.", "Không thấp hơn 5 đến không lớn hơn 12 khách."),
+    ]
+
+    for index, (evidence, claim) in enumerate(cases):
+        result = validate_answer(answer(claim, [str(index)]), [chunk(str(index), evidence)])
+        assert result.status == "answered", (evidence, claim)
+
+
+def test_unknown_comparative_cue_does_not_default_to_equality_or_range():
+    scalar = validate_answer(
+        answer("5 people.", ["scalar"]),
+        [chunk("scalar", "Approximately 5 people.")],
+    )
+    numeric_range = validate_answer(
+        answer("From 5 to 12 people.", ["range"]),
+        [chunk("range", "From about 5 to 12 people.")],
+    )
+    trailing_scalar = validate_answer(
+        answer("5 people.", ["trailing-scalar"]),
+        [chunk("trailing-scalar", "5 people maximum.")],
+    )
+    trailing_range = validate_answer(
+        answer("From 5 to 12 people.", ["trailing-range"]),
+        [chunk("trailing-range", "From 5 to 12 people maximum.")],
+    )
+
+    assert scalar.status == "unsupported"
+    assert numeric_range.status == "unsupported"
+    assert trailing_scalar.status == "unsupported"
+    assert trailing_range.status == "unsupported"
+
+
+def test_not_less_and_not_greater_mean_inclusive_bounds():
+    minimum = validate_answer(
+        answer("Not less than 5 people.", ["minimum"]),
+        [chunk("minimum", "At least 5 people.")],
+    )
+    maximum = validate_answer(
+        answer("Not greater than 5 people.", ["maximum"]),
+        [chunk("maximum", "At most 5 people.")],
+    )
+
+    assert minimum.status == "answered"
+    assert maximum.status == "answered"
+
+
+def test_comparator_does_not_leak_across_prior_numeric_range():
+    result = validate_answer(
+        answer("Áp dụng 75%.", ["child"]),
+        [chunk("child", "Trẻ từ 5 đến dưới 12 tuổi tính 75% giá tour người lớn.")],
+    )
+
+    assert result.status == "answered"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),

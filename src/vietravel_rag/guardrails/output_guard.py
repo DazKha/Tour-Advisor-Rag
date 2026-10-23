@@ -82,14 +82,27 @@ _UNIT_PATTERN = re.compile(
 )
 _COMPARATOR_ALIASES = {
     "more than": ">", "greater than": ">", "over": ">", "above": ">", "trên": ">",
-    "under": "<", "below": "<", "dưới": "<",
-    "at least": ">=", "no less than": ">=", "not under": ">=", "tối thiểu": ">=",
-    "ít nhất": ">=", "không dưới": ">=", "from": ">=", "từ": ">=",
-    "at most": "<=", "no more than": "<=", "not over": "<=", "tối đa": "<=",
-    "không quá": "<=", "to": "<=", "đến": "<=", "tới": "<=", "up to": "<=",
+    "less than": "<", "fewer than": "<", "lower than": "<", "smaller than": "<",
+    "under": "<", "below": "<", "dưới": "<", "nhỏ hơn": "<", "ít hơn": "<", "thấp hơn": "<",
+    "at least": ">=", "no less than": ">=", "not less than": ">=", "not under": ">=",
+    "no fewer than": ">=", "not fewer than": ">=", "no lower than": ">=", "not lower than": ">=",
+    "no smaller than": ">=", "not smaller than": ">=", "tối thiểu": ">=", "ít nhất": ">=",
+    "không dưới": ">=", "không nhỏ hơn": ">=", "không ít hơn": ">=", "không thấp hơn": ">=",
+    "from": ">=", "từ": ">=",
+    "at most": "<=", "no more than": "<=", "not more than": "<=", "not over": "<=",
+    "no greater than": "<=", "not greater than": "<=", "no higher than": "<=", "not higher than": "<=",
+    "tối đa": "<=", "không quá": "<=", "không lớn hơn": "<=", "không nhiều hơn": "<=",
+    "không cao hơn": "<=", "to": "<=", "đến": "<=", "tới": "<=", "up to": "<=",
 }
 _COMPARATOR_NAMES = tuple(sorted(_COMPARATOR_ALIASES, key=len, reverse=True))
 _COMPARATOR_ALTERNATION = "|".join(re.escape(name) for name in _COMPARATOR_NAMES)
+_UNKNOWN_CUES = {
+    "less", "fewer", "lower", "smaller", "greater", "more", "higher", "larger", "bigger",
+    "least", "most", "minimum", "maximum", "under", "over", "above", "below", "not", "no", "than",
+    "ít", "hơn", "kém", "tối thiểu", "tối đa",
+    "about", "approximately", "roughly", "around", "nearly", "almost", "xấp", "khoảng", "gần",
+}
+_UNKNOWN_RANGE_QUALIFIER = r"[^\W\d_]+(?:\s+[^\W\d_]+){0,3}"
 _CURRENCY_CODES = ("vnd", "usd", "eur", "gbp", "jpy", "cny", "rmb", "thb", "sgd", "krw", "aud", "cad", "php")
 _CURRENCY_PREFIX = re.compile(
     r"(?:^|\s)(?P<unit>" + "|".join(sorted(_CURRENCY_CODES, key=len, reverse=True)) + r")\s*$",
@@ -98,7 +111,7 @@ _CURRENCY_PREFIX = re.compile(
 _RANGE_NUMBER = re.compile(
     r"(?<!\d)(?P<start>\d+(?:[.,]\d+)*)(?P<start_unit>\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))?"
     r"(?P<connector>\s*[-–—]\s*|\s*(?:đến|tới|to)\s*)"
-    r"(?P<end_qualifier>" + _COMPARATOR_ALTERNATION + r")?\s*"
+    r"(?P<end_qualifier>(?:" + _COMPARATOR_ALTERNATION + r"|" + _UNKNOWN_RANGE_QUALIFIER + r"))?\s*"
     r"(?P<end>\d+(?:[.,]\d+)*)(?=\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))",
     re.IGNORECASE,
 )
@@ -174,18 +187,51 @@ def _normalize_unit(unit: str | None, number_start: int, text: str) -> tuple[str
 
 def _bound_before(text: str, position: int, default: str = "=") -> str:
     prefix = text[max(0, position - 48) : position]
+    prior_numbers = list(re.finditer(r"\d+", prefix))
+    if prior_numbers:
+        prefix = prefix[prior_numbers[-1].end() :]
     match = _BOUND_PREFIX.search(prefix)
-    if not match:
-        return default
-    qualifier = re.sub(r"\s+", " ", match.group("qualifier").casefold())
-    return _COMPARATOR_ALIASES[qualifier]
+    if match:
+        qualifier = re.sub(r"\s+", " ", match.group("qualifier").casefold())
+        return _COMPARATOR_ALIASES[qualifier]
+
+    clause = re.split(r"[.!?;,:]", prefix)[-1].casefold()
+    words = re.findall(r"[^\W\d_]+", clause)
+    for index, word in enumerate(words):
+        if word in _UNKNOWN_CUES:
+            phrase = " ".join(words[index:])
+            return f"unknown:{phrase}"
+    return default
 
 
-def _range_end_bound(match: re.Match[str]) -> str:
+def _bound_after(text: str, position: int) -> str | None:
+    unit_match = _UNIT_PATTERN.match(text, position)
+    tail_start = unit_match.end() if unit_match else position
+    tail = re.split(r"[.!?;,:]", text[tail_start : tail_start + 48])[0].casefold()
+    words = re.findall(r"[^\W\d_]+", tail)
+    for index, word in enumerate(words):
+        if word in _UNKNOWN_CUES:
+            return f"unknown:{' '.join(words[index:])}"
+    return None
+
+
+def _combine_bounds(before: str, after: str | None) -> str:
+    if after is None:
+        return before
+    if before == "=":
+        return after
+    if before == after:
+        return before
+    return f"unknown:{before}|{after}"
+
+
+def _range_end_bound(match: re.Match[str], text: str) -> str:
     qualifier = re.sub(r"\s+", " ", (match.group("end_qualifier") or "").casefold())
     if qualifier:
-        return _COMPARATOR_ALIASES[qualifier]
-    return "<="
+        before = _COMPARATOR_ALIASES.get(qualifier, f"unknown:{qualifier}")
+    else:
+        before = "<="
+    return _combine_bounds(before, _bound_after(text, match.end("end")))
 
 
 def _number_facts(text: str) -> set[NumericFact]:
@@ -221,7 +267,7 @@ def _number_facts(text: str) -> set[NumericFact]:
             end_value = end * end_multiplier
             value = f"{format(start_value.normalize(), 'f')}:{format(end_value.normalize(), 'f')}"
             start_bound = _bound_before(text, match.start(), ">=")
-            end_bound = _range_end_bound(match)
+            end_bound = _range_end_bound(match, text)
             facts.add(NumericFact(value, f"range:{unit}", f"{start_bound}:{end_bound}"))
         range_spans.append(match.span())
 
@@ -238,7 +284,9 @@ def _number_facts(text: str) -> set[NumericFact]:
         if number is None:
             continue
         normalized_value = number * multiplier
-        comparator = _bound_before(text, match.start())
+        comparator = _combine_bounds(
+            _bound_before(text, match.start()), _bound_after(text, match.end("number"))
+        )
         facts.add(NumericFact(format(normalized_value.normalize(), "f"), unit, comparator))
     return facts
 
