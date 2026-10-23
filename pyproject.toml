@@ -1,0 +1,29 @@
+[project]
+name = "vietravel-tour-rag"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "chromadb",
+  "langchain",
+  "langchain-chroma",
+  "langchain-openai",
+  "langgraph",
+  "openai",
+  "openpyxl",
+  "pydantic>=2",
+  "pydantic-settings",
+  "pymupdf",
+  "ragas",
+  "streamlit",
+  "tiktoken",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "ruff"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

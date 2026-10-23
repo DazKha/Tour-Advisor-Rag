@@ -1,0 +1,8 @@
+.env
+.streamlit/secrets.toml
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+eval_results/
+evaluation_results/
+evaluation_results.*
