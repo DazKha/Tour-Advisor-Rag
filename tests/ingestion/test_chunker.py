@@ -68,3 +68,24 @@ def test_catalog_contains_exact_ordered_itinerary_aggregation(danang_chunks):
     assert records[1].source_chunk_ids == [chunk.chunk_id for chunk in days]
     assert records[1].content == "\n\n".join(chunk.content for chunk in days)
     assert all(alias in records[0].content for alias in DANANG.aliases)
+
+
+def test_registration_notes_split_at_list_boundaries_and_keep_page_provenance(danang_chunks):
+    registration = [chunk for chunk in danang_chunks if chunk.section_type == "registration_notes"]
+    assert len(registration) > 1
+    assert all(len(chunk.content) <= 1800 for chunk in registration)
+    baggage = next(chunk for chunk in registration if "20kg" in chunk.content)
+    assert baggage.chunk_id == "danang-central-5d4n_registration_notes_01"
+    assert 4 in baggage.page_texts
+    assert "20kg" in baggage.page_texts[4] and "7kg" in baggage.page_texts[4]
+
+
+def test_china_visa_requirements_are_not_mislabeled_as_force_majeure(all_chunks):
+    china = [chunk for chunk in all_chunks if chunk.tour_code == "china-lijiang-dali-shangrila"]
+    visa = [chunk for chunk in china if chunk.section_type == "visa"]
+    force_majeure = [chunk for chunk in china if chunk.section_type == "force_majeure"]
+    assert visa
+    assert all("ĐIỀU KIỆN XIN VISA" not in chunk.content for chunk in force_majeure)
+    assert all("Ghi chú" not in chunk.content for chunk in force_majeure)
+    assert all(len(chunk.content) > 100 for chunk in force_majeure)
+    assert all(len(chunk.content) <= 1800 for chunk in visa)

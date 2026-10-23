@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from vietravel_rag.ingestion.pdf_extract import extract_pdf_pages
+from vietravel_rag.ingestion.pdf_extract import _clean_page, _page_text_from_blocks, extract_pdf_pages
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,3 +27,16 @@ def test_extraction_keeps_baggage_claims_on_their_source_pages(danang_pages):
 
 def test_extraction_removes_tour_ui_prompt(danang_pages):
     assert all("Xem chương trình tour" not in page.text for page in danang_pages)
+
+
+def test_cleanup_preserves_repeated_numeric_table_values():
+    assert _clean_page("10\n10\n20") == "10\n10\n20"
+
+
+def test_only_positionally_confirmed_page_labels_are_removed():
+    blocks = [
+        (0, 100, 20, 120, "3", 0, 0),
+        (0, 970, 20, 990, "3", 1, 0),
+        (0, 970, 20, 990, "3", 2, 0),
+    ]
+    assert _page_text_from_blocks(blocks, page_number=3, page_height=1000) == "3"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 
 from vietravel_rag.models import ChunkRecord, PageText, TourSource
 
@@ -18,18 +19,73 @@ SECTION_HEADINGS = {
 }
 _DAY = re.compile(r"^Ngày\s+(\d+)\s*:\s*(.*)$", re.I)
 _HEADING_ALIASES = {phrase.casefold(): kind for kind, phrases in SECTION_HEADINGS.items() for phrase in phrases}
+_ADDITIONAL_HEADINGS = {
+    "visa": (
+        "điều kiện xin visa",
+        "điều kiện xin visa đoàn",
+        "điều kiện xin visa du lịch trung quốc",
+        "hồ sơ chi tiết cá nhân",
+        "visa du lịch trung quốc nộp tại trung tâm tiếp nhận hồ sơ",
+    ),
+    "tour_notes": ("ghi chú",),
+    "contact": ("thông tin liên lạc",),
+}
+_ADDITIONAL_ALIASES = {phrase.casefold(): kind for kind, phrases in _ADDITIONAL_HEADINGS.items() for phrase in phrases}
+MAX_REGISTRATION_CHARS = 1800
 
 
 def _kind(line: str) -> str | None:
     value = line.strip().casefold().rstrip(":")
     if value == "giá dịch vụ":
         return "price"
-    return next((kind for phrase, kind in _HEADING_ALIASES.items() if value.startswith(phrase)), None)
+    result = next((kind for phrase, kind in _HEADING_ALIASES.items() if value == phrase), None)
+    if result:
+        return result
+    return next((kind for phrase, kind in _ADDITIONAL_ALIASES.items()
+                 if value == phrase or (kind == "visa" and value.startswith(phrase + " "))), None)
+
+
+def _page_texts(rows: Iterable[tuple[int, str]]) -> dict[int, str]:
+    grouped: defaultdict[int, list[str]] = defaultdict(list)
+    for page_number, line in rows:
+        grouped[page_number].append(line)
+    return {page: "\n".join(lines) for page, lines in grouped.items()}
+
+
+def _semantic_groups(kind: str, rows: list[tuple[int, str]]) -> list[list[tuple[int, str]]]:
+    if kind not in {"registration_notes", "visa"}:
+        return [rows]
+    items: list[list[tuple[int, str]]] = []
+    item: list[tuple[int, str]] = []
+    for row in rows:
+        starts_list_item = bool(re.match(r"^[-•·]\s+", row[1]))
+        starts_subsection = bool(re.match(r"^Lưu ý khi chuyển/hủy tour\b", row[1], re.I))
+        if item and (starts_list_item or starts_subsection):
+            items.append(item)
+            item = []
+        item.append(row)
+    if item:
+        items.append(item)
+
+    groups: list[list[tuple[int, str]]] = []
+    current: list[tuple[int, str]] = []
+    current_chars = 0
+    for semantic_item in items:
+        item_chars = sum(len(line) + 1 for _, line in semantic_item)
+        if current and current_chars + item_chars > MAX_REGISTRATION_CHARS:
+            groups.append(current)
+            current = []
+            current_chars = 0
+        current.extend(semantic_item)
+        current_chars += item_chars
+    if current:
+        groups.append(current)
+    return groups
 
 
 def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
     rows = [(page.page_number, line.strip()) for page in pages for line in page.text.splitlines() if line.strip()]
-    chunks_data: list[tuple[str, str, int, int, str]] = []
+    chunks_data: list[tuple[str, str, int, int, str, dict[int, str]]] = []
 
     # The first-page commercial table ends before itinerary begins; keep it whole.
     first_day = next((i for i, (_, line) in enumerate(rows) if _DAY.match(line)), len(rows))
@@ -43,7 +99,7 @@ def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
             else:
                 break
         price_rows = rows[price_start:title_start]
-        chunks_data.append(("price", "Giá dịch vụ", price_rows[0][0], price_rows[-1][0], "\n".join(x[1] for x in price_rows)))
+        chunks_data.append(("price", "Giá dịch vụ", price_rows[0][0], price_rows[-1][0], "\n".join(x[1] for x in price_rows), _page_texts(price_rows)))
         rows = rows[:price_start] + rows[title_start:]
 
     current_kind = "tour_overview"
@@ -53,11 +109,19 @@ def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
     def flush() -> None:
         nonlocal current
         if current:
-            chunks_data.append((current_kind, current_title, current[0][0], current[-1][0], "\n".join(line for _, line in current)))
+            for group in _semantic_groups(current_kind, current):
+                chunks_data.append((
+                    current_kind,
+                    current_title,
+                    group[0][0],
+                    group[-1][0],
+                    "\n".join(line for _, line in group),
+                    _page_texts(group),
+                ))
             current = []
 
     for page_no, line in rows:
-        if line.casefold() in {"xem chương trình tour"} or re.fullmatch(r"\d+", line):
+        if line.casefold() in {"xem chương trình tour"}:
             continue
         day = _DAY.match(line)
         kind = _kind(line)
@@ -92,13 +156,9 @@ def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
 
     counters: defaultdict[str, int] = defaultdict(int)
     records: list[ChunkRecord] = []
-    for kind, title, page_start, page_end, content in chunks_data:
-        if kind == "itinerary":
-            counters[kind] += 1
-            index = counters[kind]
-        else:
-            counters[kind] += 1
-            index = counters[kind]
+    for kind, title, page_start, page_end, content, page_texts in chunks_data:
+        counters[kind] += 1
+        index = counters[kind]
         chunk_id = f"{source.tour_code}_{kind}_{index:02d}"
         records.append(ChunkRecord(
             chunk_id=chunk_id,
@@ -112,5 +172,6 @@ def chunk_tour(source: TourSource, pages: list[PageText]) -> list[ChunkRecord]:
             source_file=source.source_file,
             content=content,
             embedding_text=f"{source.tour_name} ({source.tour_code})\n{title}\n{content}",
+            page_texts=page_texts,
         ))
     return records

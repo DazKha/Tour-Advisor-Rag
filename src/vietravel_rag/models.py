@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PageText(BaseModel):
@@ -34,6 +34,7 @@ class ChunkRecord(BaseModel):
     authority: Literal["official_tour_pdf"] = "official_tour_pdf"
     content: str
     embedding_text: str
+    page_texts: dict[int, str] = Field(default_factory=dict)
 
 
 class CatalogRecord(BaseModel):

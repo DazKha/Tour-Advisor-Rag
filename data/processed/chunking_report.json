@@ -3,7 +3,7 @@
     "status": "PASS",
     "errors": [],
     "unclassified_sections": 0,
-    "chunk_count": 62,
+    "chunk_count": 80,
     "catalog_count": 8
   },
   "source_count": 4,
@@ -14,17 +14,19 @@
     "china-lijiang-dali-shangrila": 10
   },
   "section_counts": {
-    "cancellation_holiday": 4,
     "cancellation_standard": 4,
     "child_price": 4,
+    "contact": 4,
     "excluded": 4,
-    "force_majeure": 8,
+    "force_majeure": 4,
     "included": 4,
     "itinerary": 18,
     "payment": 4,
     "price": 4,
-    "registration_notes": 4,
-    "tour_overview": 4
+    "registration_notes": 17,
+    "tour_notes": 3,
+    "tour_overview": 4,
+    "visa": 6
   },
   "reviewed_sections": [
     "price",
@@ -39,37 +41,102 @@
     "child_price": 4,
     "payment": 4,
     "cancellation_standard": 4,
-    "cancellation_holiday": 4
+    "cancellation_holiday": 0
   },
   "baggage_claims_reviewed": 2,
   "oversized_semantic_units": [
     {
-      "chunk_id": "danang-central-5d4n_registration_notes_01",
-      "section_type": "registration_notes",
-      "characters": 6554
+      "chunk_id": "thailand-bangkok-pattaya_cancellation_standard_01",
+      "section_type": "cancellation_standard",
+      "characters": 3408
     },
     {
-      "chunk_id": "mekong-my-tho-ben-tre-can-tho_registration_notes_01",
-      "section_type": "registration_notes",
-      "characters": 6554
+      "chunk_id": "china-lijiang-dali-shangrila_cancellation_standard_01",
+      "section_type": "cancellation_standard",
+      "characters": 3408
     }
   ],
+  "semantic_unit_limit_chars": 1800,
+  "registration_semantic_splits": {
+    "danang-central-5d4n": {
+      "chunk_ids": [
+        "danang-central-5d4n_registration_notes_01",
+        "danang-central-5d4n_registration_notes_02",
+        "danang-central-5d4n_registration_notes_03",
+        "danang-central-5d4n_registration_notes_04",
+        "danang-central-5d4n_registration_notes_05"
+      ],
+      "character_counts": [
+        1785,
+        1594,
+        639,
+        1684,
+        848
+      ],
+      "split_at_list_or_subsection_boundaries": true
+    },
+    "mekong-my-tho-ben-tre-can-tho": {
+      "chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_registration_notes_01",
+        "mekong-my-tho-ben-tre-can-tho_registration_notes_02",
+        "mekong-my-tho-ben-tre-can-tho_registration_notes_03",
+        "mekong-my-tho-ben-tre-can-tho_registration_notes_04",
+        "mekong-my-tho-ben-tre-can-tho_registration_notes_05"
+      ],
+      "character_counts": [
+        1785,
+        1594,
+        639,
+        1684,
+        848
+      ],
+      "split_at_list_or_subsection_boundaries": true
+    },
+    "thailand-bangkok-pattaya": {
+      "chunk_ids": [
+        "thailand-bangkok-pattaya_registration_notes_01",
+        "thailand-bangkok-pattaya_registration_notes_02",
+        "thailand-bangkok-pattaya_registration_notes_03"
+      ],
+      "character_counts": [
+        1769,
+        1663,
+        417
+      ],
+      "split_at_list_or_subsection_boundaries": true
+    },
+    "china-lijiang-dali-shangrila": {
+      "chunk_ids": [
+        "china-lijiang-dali-shangrila_registration_notes_01",
+        "china-lijiang-dali-shangrila_registration_notes_02",
+        "china-lijiang-dali-shangrila_registration_notes_03",
+        "china-lijiang-dali-shangrila_registration_notes_04"
+      ],
+      "character_counts": [
+        1610,
+        1769,
+        1663,
+        716
+      ],
+      "split_at_list_or_subsection_boundaries": true
+    }
+  },
   "oversized_review_decisions": [
     {
-      "chunk_id": "danang-central-5d4n_registration_notes_01",
-      "decision": "retain intact; source registration and travel conditions form one connected section",
-      "page_range": "3-5"
+      "chunk_id": "thailand-bangkok-pattaya_cancellation_standard_01",
+      "decision": "retain the complete cancellation schedule as one atomic policy unit",
+      "page_range": "5-6"
     },
     {
-      "chunk_id": "mekong-my-tho-ben-tre-can-tho_registration_notes_01",
-      "decision": "retain intact; source registration and travel conditions form one connected section",
-      "page_range": "3-5"
+      "chunk_id": "china-lijiang-dali-shangrila_cancellation_standard_01",
+      "decision": "retain the complete cancellation schedule as one atomic policy unit",
+      "page_range": "6-7"
     }
   ],
   "removed_content": [
-    "standalone page numbers",
+    "confirmed bottom-of-page labels matching the one-based page number",
     "Xem chương trình tour UI text",
-    "exact adjacent duplicate extraction spans"
+    "exact duplicate text blocks at identical coordinates"
   ],
   "source_conflicts_preserved": [
     "Đà Nẵng baggage claims on pages 3 and 4"

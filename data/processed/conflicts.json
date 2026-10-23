@@ -4,12 +4,12 @@
     "topic": "baggage",
     "claims": [
       {
-        "text": "23kg ký gửi, 10kg xách tay",
+        "text": "Hành lý ký gửi 23kg, xách tay 10kg/khách",
         "page": 3,
         "chunk_id": "danang-central-5d4n_included_01"
       },
       {
-        "text": "20kg ký gửi, dưới 7kg xách tay",
+        "text": "xách tay dưới 7kg/1khách",
         "page": 4,
         "chunk_id": "danang-central-5d4n_registration_notes_01"
       }

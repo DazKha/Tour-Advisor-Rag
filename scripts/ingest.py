@@ -40,9 +40,7 @@ def main() -> int:
         chunks = chunk_tour(source, pages)
         all_chunks.extend(chunks)
         all_catalog.extend(build_catalog(source, chunks))
-    validation = validate_corpus(all_chunks, all_catalog)
-    if validation["status"] != "PASS":
-        raise SystemExit(json.dumps(validation, ensure_ascii=False, indent=2))
+    sales_guidance = build_sales_guidance(SALES_FILE)
     danang = [c for c in all_chunks if c.tour_code == "danang-central-5d4n"]
     danang_ids = {c.chunk_id for c in danang}
     claim_ids = ("danang-central-5d4n_included_01", "danang-central-5d4n_registration_notes_01")
@@ -52,18 +50,29 @@ def main() -> int:
         "tour_code": "danang-central-5d4n",
         "topic": "baggage",
         "claims": [
-            {"text": "23kg ký gửi, 10kg xách tay", "page": 3, "chunk_id": claim_ids[0]},
-            {"text": "20kg ký gửi, dưới 7kg xách tay", "page": 4, "chunk_id": claim_ids[1]},
+            {"text": "Hành lý ký gửi 23kg, xách tay 10kg/khách", "page": 3, "chunk_id": claim_ids[0]},
+            {"text": "xách tay dưới 7kg/1khách", "page": 4, "chunk_id": claim_ids[1]},
         ],
         "resolution": "require_human_confirmation",
     }]
+    validation = validate_corpus(all_chunks, all_catalog, sales_guidance, conflicts)
+    if validation["status"] != "PASS":
+        raise SystemExit(json.dumps(validation, ensure_ascii=False, indent=2))
     write_jsonl(OUTPUT / "tour_chunks.jsonl", all_chunks)
     write_jsonl(OUTPUT / "tour_catalog.jsonl", all_catalog)
-    (OUTPUT / "sales_guidance.json").write_text(json.dumps(build_sales_guidance(SALES_FILE), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (OUTPUT / "sales_guidance.json").write_text(json.dumps(sales_guidance, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (OUTPUT / "conflicts.json").write_text(json.dumps(conflicts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     section_counts = Counter(c.section_type for c in all_chunks)
     oversized = [{"chunk_id": c.chunk_id, "section_type": c.section_type, "characters": len(c.content)}
-                 for c in all_chunks if len(c.content) > 6000]
+                 for c in all_chunks if len(c.content) > 1800]
+    registration_groups = {}
+    for source in TOUR_SOURCES:
+        units = [c for c in all_chunks if c.tour_code == source.tour_code and c.section_type == "registration_notes"]
+        registration_groups[source.tour_code] = {
+            "chunk_ids": [c.chunk_id for c in units],
+            "character_counts": [len(c.content) for c in units],
+            "split_at_list_or_subsection_boundaries": len(units) > 1,
+        }
     report = {
         "validation": validation,
         "source_count": len(TOUR_SOURCES),
@@ -73,13 +82,25 @@ def main() -> int:
         "reviewed_chunk_counts": {kind: section_counts.get(kind, 0) for kind in ("price", "child_price", "payment", "cancellation_standard", "cancellation_holiday")},
         "baggage_claims_reviewed": 2,
         "oversized_semantic_units": oversized,
+        "semantic_unit_limit_chars": 1800,
+        "registration_semantic_splits": registration_groups,
         "oversized_review_decisions": [
-            {"chunk_id": item["chunk_id"], "decision": "retain intact; source registration and travel conditions form one connected section", "page_range": next(f"{c.page_start}-{c.page_end}" for c in all_chunks if c.chunk_id == item["chunk_id"])}
+            {
+                "chunk_id": item["chunk_id"],
+                "decision": (
+                    "retain as one day-level semantic unit"
+                    if item["section_type"] == "itinerary"
+                    else "retain the complete cancellation schedule as one atomic policy unit"
+                    if item["section_type"] in {"cancellation_standard", "cancellation_holiday"}
+                    else "retain because no source list or subsection boundary can split this unit without breaking it"
+                ),
+                "page_range": next(f"{c.page_start}-{c.page_end}" for c in all_chunks if c.chunk_id == item["chunk_id"]),
+            }
             for item in oversized
         ],
-        "removed_content": ["standalone page numbers", "Xem chương trình tour UI text", "exact adjacent duplicate extraction spans"],
+        "removed_content": ["confirmed bottom-of-page labels matching the one-based page number", "Xem chương trình tour UI text", "exact duplicate text blocks at identical coordinates"],
         "source_conflicts_preserved": ["Đà Nẵng baggage claims on pages 3 and 4"],
-        "sales_guidance_scenario_count": len(build_sales_guidance(SALES_FILE)),
+        "sales_guidance_scenario_count": len(sales_guidance),
     }
     (OUTPUT / "chunking_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"status": "PASS", **validation, "section_counts": report["section_counts"], "artifacts": 5}, ensure_ascii=False))
