@@ -28,6 +28,8 @@ def test_query_analysis_distinguishes_documented_dates_from_live_availability_fo
 
     assert "documented departure and return dates" in prompt
     assert "live seat availability" in prompt
+    assert "current/live capacity" in prompt
+    assert "whether the tour can be booked now" in prompt
     assert "“đi từ ngày mấy đến ngày mấy?”" in prompt
     assert "bangkok–pattaya schedule question" in prompt
     assert 'intent `itinerary`' in prompt

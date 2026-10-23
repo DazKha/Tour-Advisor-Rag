@@ -336,11 +336,19 @@ def test_documented_departure_date_follow_up_keeps_tour_and_overview_citation():
     })
     invoke_turn(graph, "Tôi muốn xem lịch trình tour Bangkok – Pattaya.", "departure-date-follow-up")
     result = invoke_turn(graph, "đi từ ngày mấy đến ngày mấy?", "departure-date-follow-up")
+    query_analysis_input = "\n".join(str(message.content) for message in model.messages[2])
+    answer_generation_input = "\n".join(str(message.content) for message in model.messages[3])
 
     assert "26/03/2027" in result["response"]["answer"]
     assert "30/03/2027" in result["response"]["answer"]
     assert result["active_tour_codes"] == ["thailand-bangkok-pattaya"]
     assert result["response"]["citation_ids"] == ["overview-1"]
+    assert "đi từ ngày mấy đến ngày mấy?" in query_analysis_input
+    assert "Tôi muốn xem lịch trình tour Bangkok – Pattaya." in query_analysis_input
+    assert "Tour Bangkok – Pattaya có lịch trình tham quan theo chương trình." in query_analysis_input
+    assert "thailand-bangkok-pattaya" in query_analysis_input
+    assert "chunk_id=overview-1" in answer_generation_input
+    assert "Ngày khởi hành: 26/03/2027. Ngày về: 30/03/2027." in answer_generation_input
 
 
 def test_graph_routes_current_price_to_realtime_required():

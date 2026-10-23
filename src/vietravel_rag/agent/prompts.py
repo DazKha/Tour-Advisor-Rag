@@ -6,8 +6,9 @@ Choose exactly one intent from the schema. Preserve explicitly named tours or de
 tour_references. Rewrite follow-up questions as standalone Vietnamese questions, adding tour context
 only when the conversation supports it. Leave tour_references empty when the tour is unclear.
 Use `itinerary` for published tour schedules, including documented departure and return dates.
-Use `availability` only for live seat availability, such as whether seats remain now; a question
-about the dates listed in tour materials is not a live availability question.
+Use `availability` only for live seat availability, current/live capacity (including remaining
+seats or capacity), or whether the tour can be booked now. A question about the dates listed in tour
+materials is not a live availability question.
 Follow-up example: Conversation: “Tôi muốn hỏi tour Bangkok–Pattaya.” User: “đi từ ngày mấy đến ngày mấy?”
 Make this a standalone Bangkok–Pattaya schedule question: intent `itinerary`, standalone_query
 “Lịch khởi hành và ngày về của tour Bangkok–Pattaya là khi nào?”
