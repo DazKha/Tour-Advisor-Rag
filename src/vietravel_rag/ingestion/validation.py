@@ -51,6 +51,19 @@ def _validate_conflicts(chunks: list[ChunkRecord], conflicts: list[dict] | None)
     errors: list[str] = []
     if conflicts is None:
         return ["Conflict artifact is missing"]
+    expected_conflicts = [{
+        "tour_code": "danang-central-5d4n",
+        "topic": "baggage",
+        "claims": [
+            {"text": "Hành lý ký gửi 23kg, xách tay 10kg/khách", "page": 3,
+             "chunk_id": "danang-central-5d4n_included_01"},
+            {"text": "xách tay dưới 7kg/1khách", "page": 4,
+             "chunk_id": "danang-central-5d4n_registration_notes_01"},
+        ],
+        "resolution": "require_human_confirmation",
+    }]
+    if conflicts != expected_conflicts:
+        errors.append("Required Đà Nẵng baggage conflict record does not match the curated claims, pages, IDs, and resolution")
     by_id = {chunk.chunk_id: chunk for chunk in chunks}
     for conflict in conflicts:
         for claim in conflict.get("claims", []):

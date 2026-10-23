@@ -96,3 +96,62 @@ def test_validator_requires_conflict_claim_text_on_exact_cited_page(corpus):
     result = validate_corpus(chunks, catalog, [], bad)
     assert any("Conflict claim is not present on cited source page" in error for error in result["errors"])
 
+
+def test_validator_rejects_empty_curated_conflict_list(corpus):
+    chunks, catalog, _ = corpus
+    result = validate_corpus(chunks, catalog, [], [])
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("tour_code", "wrong-tour"),
+    ("topic", "payment"),
+    ("resolution", "choose_one"),
+])
+def test_validator_requires_exact_curated_conflict_metadata(corpus, field, value):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    bad[0][field] = value
+    bad[0]["claims"] = []
+    result = validate_corpus(chunks, catalog, [], bad)
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+def test_validator_rejects_missing_required_baggage_claim(corpus):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    bad[0]["claims"].pop()
+    result = validate_corpus(chunks, catalog, [], bad)
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+def test_validator_rejects_changed_required_claim_text_even_if_page_contains_it(corpus):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    bad[0]["claims"][0]["text"] = "23kg"
+    result = validate_corpus(chunks, catalog, [], bad)
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+def test_validator_rejects_wrong_required_page_even_if_page_provenance_is_internally_consistent(corpus):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    bad[0]["claims"][0]["page"] = 4
+    included = next(c for c in chunks if c.chunk_id == bad[0]["claims"][0]["chunk_id"])
+    page_texts = dict(included.page_texts)
+    page_texts[4] = page_texts[3] + "\n" + bad[0]["claims"][0]["text"]
+    forged = included.model_copy(update={"page_end": 4, "page_texts": page_texts})
+    changed = [forged if c.chunk_id == included.chunk_id else c for c in chunks]
+    result = validate_corpus(changed, catalog, [], bad)
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+def test_validator_rejects_wrong_required_stable_chunk_id_when_citation_is_valid(corpus):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    source = next(c for c in chunks if c.chunk_id == bad[0]["claims"][0]["chunk_id"])
+    alternate = source.model_copy(update={"chunk_id": "danang-central-5d4n_included_99"})
+    bad[0]["claims"][0]["chunk_id"] = alternate.chunk_id
+    result = validate_corpus(chunks + [alternate], catalog, [], bad)
+    assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
