@@ -121,9 +121,9 @@ _BOUND_PREFIX = re.compile(
     re.IGNORECASE,
 )
 _SUFFIX_COMPARATOR_ALIASES = {
-    "trở lên": ">=", "or more": ">=", "or older": ">=", "and above": ">",
+    "trở lên": ">=", "or more": ">=", "or older": ">=", "and above": ">=",
     "trở xuống": "<=", "or less": "<=", "or fewer": "<=", "or younger": "<=",
-    "and below": "<",
+    "and below": "<=",
 }
 _SUFFIX_COMPARATOR_NAMES = tuple(sorted(_SUFFIX_COMPARATOR_ALIASES, key=len, reverse=True))
 _SUFFIX_COMPARATOR_ALTERNATION = "|".join(

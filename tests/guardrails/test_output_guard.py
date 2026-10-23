@@ -565,6 +565,34 @@ def test_thailand_price_chunk_age_and_currency_facts_validate_together():
     assert result.status == "answered"
 
 
+def test_and_above_is_inclusive_and_rejects_strict_over():
+    equivalent = validate_answer(
+        answer("12 years old and above.", ["age"]),
+        [chunk("age", "12 years old or more.")],
+    )
+    strict_claim = validate_answer(
+        answer("Over 12 years old.", ["age"]),
+        [chunk("age", "12 years old and above.")],
+    )
+
+    assert equivalent.status == "answered"
+    assert strict_claim.status == "unsupported"
+
+
+def test_and_below_is_inclusive_and_rejects_strict_under():
+    equivalent = validate_answer(
+        answer("12 years old and below.", ["age"]),
+        [chunk("age", "12 years old or less.")],
+    )
+    strict_claim = validate_answer(
+        answer("Under 12 years old.", ["age"]),
+        [chunk("age", "12 years old and below.")],
+    )
+
+    assert equivalent.status == "answered"
+    assert strict_claim.status == "unsupported"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),
