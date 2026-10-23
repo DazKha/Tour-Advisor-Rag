@@ -13,19 +13,23 @@ def answer(text, citations=None, status="answered"):
 
 
 def test_unknown_citation_is_rejected():
-    result = validate_answer(answer("The tour is documented.", ["invented"]), [chunk("real")])
+    result = validate_answer(answer("A possibly invented claim.", ["invented"]), [chunk("real")])
 
     assert result.status == "unsupported"
+    assert result.answer == "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+    assert result.citation_ids == []
 
 
 def test_answered_response_without_citations_is_rejected():
-    result = validate_answer(answer("The tour is documented."), [chunk("real")])
+    result = validate_answer(answer("A possibly invented claim."), [chunk("real")])
 
     assert result.status == "unsupported"
+    assert result.answer == "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+    assert result.citation_ids == []
 
 
-def test_known_citation_allows_directly_inferred_or_reformatted_number():
-    result = validate_answer(answer("The price is 7,000,000 VND.", ["price-1"]), [chunk("price-1", "Price is 8.990.000 VND")])
+def test_known_citation_allows_separator_reformatting_of_number():
+    result = validate_answer(answer("The price is 8,990,000 VND.", ["price-1"]), [chunk("price-1", "Price is 8.990.000 VND")])
 
     assert result.status == "answered"
 

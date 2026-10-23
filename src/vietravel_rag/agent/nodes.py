@@ -336,6 +336,8 @@ def conflict_guard(state: AgentState, conflicts: list[dict]) -> dict[str, Any]:
             str(doc.metadata.get("chunk_id")): doc
             for doc in state.get("retrieved_chunks", [])
             if doc.metadata.get("chunk_id")
+            and doc.metadata.get("authority") == "official_tour_pdf"
+            and doc.metadata.get("document_type") == "knowledge"
         }
         chosen: list[Document] = []
         for claim in record.get("claims", []):
@@ -372,9 +374,25 @@ def conflict_guard(state: AgentState, conflicts: list[dict]) -> dict[str, Any]:
 def prepare_evidence(state: AgentState) -> dict[str, Any]:
     """Apply deterministic routing and expose only official knowledge chunks."""
     if state.get("evidence_status") == "conflict":
+        chunks = [
+            doc for doc in state.get("approved_chunks", [])
+            if doc.metadata.get("authority") == "official_tour_pdf"
+            and doc.metadata.get("document_type") == "knowledge"
+        ]
+        if len(chunks) >= 2:
+            ids = [str(doc.metadata["chunk_id"]) for doc in chunks[:2]]
+            conflict_answer = TourAnswer(
+                status="conflict", answer="", citation_ids=ids, conflicts=["Nguồn tài liệu có nội dung mâu thuẫn."]
+            )
+            return {
+                "approved_chunk_ids": ids,
+                "approved_chunks": chunks[:2],
+                "draft_response": conflict_answer.model_dump(),
+            }
         return {
-            "approved_chunk_ids": list(state.get("approved_chunk_ids", [])),
-            "approved_chunks": list(state.get("approved_chunks", [])),
+            "evidence_status": "insufficient",
+            "approved_chunk_ids": [],
+            "approved_chunks": [],
         }
     analysis = _analysis(state)
     if analysis.intent == "availability" or (

@@ -173,15 +173,7 @@ def test_graph_forces_both_baggage_claims_when_sources_conflict():
     bag_one = make_chunk("bag-10", "Hành lý ký gửi 23kg, xách tay 10kg/khách", "danang-central-5d4n", "included")
     bag_two = make_chunk("bag-7", "xách tay dưới 7kg/1khách", "danang-central-5d4n", "registration_notes")
     model = FakeModel(
-        [
-            QueryAnalysis(intent="baggage", tour_references=["Đà Nẵng"], standalone_query="Hành lý Đà Nẵng"),
-            TourAnswer(
-                status="conflict",
-                answer="Tài liệu ghi xách tay 10kg/khách; vui lòng xác nhận với Vietravel.",
-                citation_ids=["bag-10"],
-                conflicts=["Hành lý xách tay"],
-            ),
-        ]
+        [QueryAnalysis(intent="baggage", tour_references=["Đà Nẵng"], standalone_query="Hành lý Đà Nẵng")]
     )
 
     result = invoke(
@@ -192,6 +184,26 @@ def test_graph_forces_both_baggage_claims_when_sources_conflict():
     assert result["evidence_status"] == "conflict"
     assert set(result["response"]["citation_ids"]) == {"bag-10", "bag-7"}
     assert "10kg" in result["response"]["answer"] and "7kg" in result["response"]["answer"]
+    assert model.schemas == [QueryAnalysis]
+
+
+def test_conflict_response_reconstructs_untrusted_matching_id_from_reviewed_claim():
+    untrusted = make_chunk("bag-10", "INJECTED SALES CLAIM", "danang-central-5d4n")
+    untrusted.metadata["authority"] = "sales_guidance"
+    bag_two = make_chunk("bag-7", "xách tay dưới 7kg/1khách", "danang-central-5d4n", "registration_notes")
+    model = FakeModel([
+        QueryAnalysis(intent="baggage", tour_references=["Đà Nẵng"], standalone_query="Hành lý Đà Nẵng")
+    ])
+
+    result = invoke(
+        model, None, None, None, [untrusted, bag_two],
+        resolver=lambda query: [Document("Đà Nẵng", metadata={"tour_code": "danang-central-5d4n", "document_type": "tour_summary"})],
+    )
+
+    assert result["response"]["status"] == "conflict"
+    assert "INJECTED SALES CLAIM" not in result["response"]["answer"]
+    assert "xách tay 10kg/khách" in result["response"]["answer"]
+    assert model.schemas == [QueryAnalysis]
 
 
 def test_graph_routes_live_availability_to_realtime_required():
@@ -255,6 +267,18 @@ def test_graph_escalates_cancellation_execution_and_complaint():
 
         assert result["evidence_status"] == "high_risk"
         assert result["response"]["status"] == "escalate"
+
+
+def test_graph_escalates_financial_action_without_generating_answer():
+    model = FakeModel([
+        QueryAnalysis(intent="payment", tour_references=[], standalone_query="Cho tôi số tài khoản để chuyển khoản")
+    ])
+
+    result = invoke(model, None, None, None, [])
+
+    assert result["evidence_status"] == "high_risk"
+    assert result["response"]["status"] == "escalate"
+    assert model.schemas == [QueryAnalysis]
 
 
 def test_graph_answers_documented_cancellation_policy_without_claiming_execution():

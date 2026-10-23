@@ -9,6 +9,8 @@ from langchain_core.documents import Document
 
 from vietravel_rag.models import TourAnswer
 
+_UNSUPPORTED_ANSWER = "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+
 _PROHIBITED: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b(?:stk|số\s+tài\s+khoản|tài\s+khoản\s+(?:ngân\s+hàng|số)|chuyển\s+khoản\s+vào|bank\s+account)\b", re.IGNORECASE),
     re.compile(r"\b(?:chắc\s+chắn\s+(?:được\s+cấp|đậu)\s+visa|đảm\s+bảo\s+(?:đậu|được\s+cấp)\s+visa|visa\s+chắc\s+chắn)\b", re.IGNORECASE),
@@ -35,7 +37,11 @@ def validate_answer(answer: TourAnswer, approved_chunks: Iterable[Document]) -> 
         if chunk.metadata.get("chunk_id") is not None
     }
     if any(citation_id not in approved_ids for citation_id in answer.citation_ids):
-        return answer.model_copy(update={"status": "unsupported"})
+        return answer.model_copy(update={
+            "status": "unsupported", "answer": _UNSUPPORTED_ANSWER, "citation_ids": []
+        })
     if answer.status in {"answered", "conflict"} and not answer.citation_ids:
-        return answer.model_copy(update={"status": "unsupported"})
+        return answer.model_copy(update={
+            "status": "unsupported", "answer": _UNSUPPORTED_ANSWER, "citation_ids": []
+        })
     return answer

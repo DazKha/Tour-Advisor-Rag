@@ -94,7 +94,11 @@ def build_graph(deps) -> Any:
     )
     workflow.add_edge("retrieval", "conflict_guard")
     workflow.add_edge("conflict_guard", "evidence_preparation")
-    workflow.add_edge("evidence_preparation", "response_generation")
+    workflow.add_conditional_edges(
+        "evidence_preparation",
+        lambda state: "conflict" if state.get("evidence_status") == "conflict" else "generate",
+        {"conflict": "output_guard", "generate": "response_generation"},
+    )
     workflow.add_edge("response_generation", "output_guard")
     workflow.add_edge("output_guard", END)
     workflow.add_edge("direct_response", END)
