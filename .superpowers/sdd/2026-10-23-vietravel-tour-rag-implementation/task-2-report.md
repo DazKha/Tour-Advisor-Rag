@@ -224,3 +224,56 @@ No source PDF, spreadsheet, or file under `raw_data/` or `reference/` was change
 - Seven PyMuPDF/SWIG deprecation warnings persist; all tests and artifact checks pass.
 - Code and tests: `acb3f7d` (`Validate exact curated baggage conflict`). The five generated artifact files were rebuilt and verified unchanged; the prescribed conflict record and stable references remained identical, so no artifact content changes were needed.
 - This round-two report update: committed in the follow-up report commit.
+
+## Fix round 3/5 — separate holiday cancellation policy
+
+### RED evidence
+
+Added regressions for exact standard/holiday chunk counts and headings, four reviewed holiday units in the chunking report, and audit rejection when holiday chunks are absent or merged into standard chunks.
+
+```text
+.venv/bin/python -m pytest tests/ingestion/test_chunker.py tests/ingestion/test_validation.py -q
+4 failed, 24 passed
+```
+
+Expected failures showed 4 standard chunks and 0 holiday chunks, a reported holiday count of 0, and no audit error when holiday material was absent/merged.
+
+### GREEN implementation and verification
+
+Added the exact `ngày lễ, Tết` heading as a holiday-section alias. Validation now requires exactly one standard and one holiday cancellation chunk for each tour, checks the holiday applicability heading is present on the holiday chunk, and rejects that heading inside a standard chunk. The existing audit consumes this validator, so it now fails when the holiday units are missing or merged. The extra blank line at EOF in `test_validation.py` was removed.
+
+```text
+.venv/bin/python scripts/ingest.py --build-artifacts
+PASS; chunks=84; catalog=8; sections: cancellation_standard=4, cancellation_holiday=4, child_price=4, contact=4, excluded=4, force_majeure=4, included=4, itinerary=18, payment=4, price=4, registration_notes=17, tour_notes=3, tour_overview=4, visa=6; artifacts=5
+
+.venv/bin/python -m pytest tests/ingestion/test_chunker.py tests/ingestion/test_validation.py -q
+28 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+
+.venv/bin/python -m pytest tests/ingestion -q
+33 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+
+.venv/bin/python scripts/audit_chunks.py
+PASS; chunks=84; catalog=8; sales_guidance=20; conflicts=1; unclassified=0; oversized semantic units=[]
+
+git diff --check 75ec456..HEAD
+PASS; no whitespace errors, including the former tests/ingestion/test_validation.py EOF blank line
+```
+
+### Manual page review and artifact counts
+
+All five artifacts were regenerated. Final counts: 84 factual chunks (including 4 standard and 4 holiday cancellation units), 8 catalog records, 20 sales-guidance scenarios, and 1 conflict record. `chunking_report.json` now reports 4 reviewed standard and 4 reviewed holiday cancellation chunks; no oversized semantic units remain. The holiday-policy split removed the previous 3,408-character standard chunks without breaking policy conditions.
+
+Manually reviewed each holiday chunk and its page provenance:
+
+- Đà Nẵng, `danang-central-5d4n_cancellation_holiday_01`, source page 6: applicability explicitly covers tours during regulated holidays/Tết; schedule retains 30-day no-fee, 25–29-day 50% deposit, 20–24-day 100% deposit, then 50%/70%/90%/100% tour-price cancellation tiers.
+- Miền Tây, `mekong-my-tho-ben-tre-can-tho_cancellation_holiday_01`, source page 5: same applicability and complete 30-day, 25–29-day, 20–24-day, 17–19-day, 08–16-day, 02–07-day, and 1-day policy tiers with original percentages and deposit/price bases.
+- Thailand, `thailand-bangkok-pattaya_cancellation_holiday_01`, source page 6: retains separate Southeast Asia/other-tour day windows, 30/45-day no-fee conditions, 50%/100% deposit rules including post-visa issuance, then 50%/70%/90%/100% tour-price tiers.
+- China, `china-lijiang-dali-shangrila_cancellation_holiday_01`, source page 7: retains the same distinct regional day windows, post-visa rule, and all percentage tiers.
+
+Each chunk title contains the exact `Các điều kiện hủy tour đối với ngày lễ, Tết` applicability heading. The separate standard chunks contain no holiday heading. Stable baggage conflict IDs, exact page provenance, and both cited claims remained unchanged. No files in `raw_data/` or `reference/` were modified; no `.env` file was read.
+
+### Round-three commits and concerns
+
+- Implementation, tests, and regenerated artifacts: `33685cc` (`Split holiday cancellation policies`).
+- This round-three report update: committed in the follow-up report commit.
+- Seven PyMuPDF/SWIG deprecation warnings remain; all tests and audits pass.
