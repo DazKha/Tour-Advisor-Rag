@@ -17,7 +17,8 @@ _DMY_DATE = re.compile(r"(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?!\d)")
 _UNIT_ALIASES: dict[str, tuple[str, Decimal]] = {
     "%": ("percent", Decimal(1)), "phần trăm": ("percent", Decimal(1)),
     "percent": ("percent", Decimal(1)),
-    "đ": ("currency_vnd", Decimal(1)), "đồng": ("currency_vnd", Decimal(1)),
+    "đ": ("currency_vnd", Decimal(1)), "₫": ("currency_vnd", Decimal(1)),
+    "đồng": ("currency_vnd", Decimal(1)),
     "vnd": ("currency_vnd", Decimal(1)), "$": ("currency_usd", Decimal(1)),
     "usd": ("currency_usd", Decimal(1)), "€": ("currency_eur", Decimal(1)),
     "eur": ("currency_eur", Decimal(1)), "£": ("currency_gbp", Decimal(1)),
@@ -116,7 +117,20 @@ _RANGE_NUMBER = re.compile(
     re.IGNORECASE,
 )
 _BOUND_PREFIX = re.compile(
-    r"(?:^|[\s,;:])(?P<qualifier>" + _COMPARATOR_ALTERNATION + r")\s*$",
+    r"(?:^|[\s,;:(])(?P<qualifier>" + _COMPARATOR_ALTERNATION + r")\s*$",
+    re.IGNORECASE,
+)
+_SUFFIX_COMPARATOR_ALIASES = {
+    "trở lên": ">=", "or more": ">=", "or older": ">=", "and above": ">",
+    "trở xuống": "<=", "or less": "<=", "or fewer": "<=", "or younger": "<=",
+    "and below": "<",
+}
+_SUFFIX_COMPARATOR_NAMES = tuple(sorted(_SUFFIX_COMPARATOR_ALIASES, key=len, reverse=True))
+_SUFFIX_COMPARATOR_ALTERNATION = "|".join(
+    re.escape(name) for name in _SUFFIX_COMPARATOR_NAMES
+)
+_BOUND_SUFFIX = re.compile(
+    r"^\s*(?P<qualifier>" + _SUFFIX_COMPARATOR_ALTERNATION + r")(?!\w)",
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"(?<!\d)(?P<number>\d+(?:[.,]\d+)*)(?!\d)")
@@ -208,6 +222,10 @@ def _bound_after(text: str, position: int) -> str | None:
     unit_match = _UNIT_PATTERN.match(text, position)
     tail_start = unit_match.end() if unit_match else position
     tail = re.split(r"[.!?;,:]", text[tail_start : tail_start + 48])[0].casefold()
+    suffix_match = _BOUND_SUFFIX.match(tail)
+    if suffix_match:
+        qualifier = re.sub(r"\s+", " ", suffix_match.group("qualifier"))
+        return _SUFFIX_COMPARATOR_ALIASES[qualifier]
     words = re.findall(r"[^\W\d_]+", tail)
     for index, word in enumerate(words):
         if word in _UNKNOWN_CUES:

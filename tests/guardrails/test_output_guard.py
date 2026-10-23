@@ -469,6 +469,102 @@ def test_comparator_does_not_leak_across_prior_numeric_range():
     assert result.status == "answered"
 
 
+def test_parenthesized_age_limit_matches_unparenthesized_strict_bound():
+    result = validate_answer(
+        answer("Dưới 2 tuổi.", ["age"]),
+        [chunk("age", "Em bé (Dưới 2 tuổi).")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_parenthesized_minimum_age_matches_at_least_synonym():
+    result = validate_answer(
+        answer("At least 12 years old.", ["age"]),
+        [chunk("age", "Người lớn (Từ 12 tuổi trở lên).")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_suffix_minimum_age_matches_at_least_synonym():
+    result = validate_answer(
+        answer("12 years old or more.", ["age"]),
+        [chunk("age", "Người lớn từ 12 tuổi trở lên.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_trailing_vietnamese_maximum_matches_english_or_less():
+    result = validate_answer(
+        answer("12 years old or less.", ["age"]),
+        [chunk("age", "Trẻ em 12 tuổi trở xuống.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_dropping_or_changing_parenthesized_comparator_is_rejected():
+    dropped = validate_answer(
+        answer("12 years old.", ["age"]),
+        [chunk("age", "Người lớn (Từ 12 tuổi trở lên).")],
+    )
+    changed = validate_answer(
+        answer("Under 12 years old.", ["age"]),
+        [chunk("age", "Người lớn (Từ 12 tuổi trở lên).")],
+    )
+
+    assert dropped.status == "unsupported"
+    assert changed.status == "unsupported"
+
+
+def test_dropping_trailing_maximum_comparator_is_rejected():
+    result = validate_answer(
+        answer("12 years old.", ["age"]),
+        [chunk("age", "12 tuổi trở xuống.")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_dong_symbol_normalizes_like_vnd_and_rejects_usd():
+    vnd_suffix = validate_answer(
+        answer("Giá 9.990.000 đồng.", ["vnd"]),
+        [chunk("vnd", "Giá 9,990,000₫.")],
+    )
+    vnd_prefix = validate_answer(
+        answer("VND 9,990,000.", ["vnd"]),
+        [chunk("vnd", "Giá 9,990,000₫.")],
+    )
+    wrong_currency = validate_answer(
+        answer("USD 9,990,000.", ["vnd"]),
+        [chunk("vnd", "Giá 9,990,000₫.")],
+    )
+
+    assert vnd_suffix.status == "answered"
+    assert vnd_prefix.status == "answered"
+    assert wrong_currency.status == "unsupported"
+
+
+def test_thailand_price_chunk_age_and_currency_facts_validate_together():
+    price_chunk = chunk(
+        "thailand-price",
+        "Người lớn: 9.990.000₫ (Từ 12 tuổi trở lên); "
+        "Trẻ em: Từ 2 tuổi đến dưới 12 tuổi; Em bé: Dưới 2 tuổi.",
+    )
+    result = validate_answer(
+        answer(
+            "Người lớn từ 12 tuổi trở lên: 9.990.000 đồng. "
+            "Trẻ em từ 2 tuổi đến dưới 12 tuổi; em bé dưới 2 tuổi.",
+            ["thailand-price"],
+        ),
+        [price_chunk],
+    )
+
+    assert result.status == "answered"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),
