@@ -85,7 +85,7 @@ python scripts/audit_chunks.py
 
 ## Evaluation
 
-The committed report is `results/eval_summary.json`, produced on 2026-10-23. The full evaluation calls the configured chat and embedding APIs and can incur charges. It requires the DeepSeek price assumptions and their source to be recorded explicitly:
+The report baseline is `results/eval_summary.json`, produced on 2026-10-23 from the fixed 30-case dataset. The full evaluation calls the configured chat and embedding APIs and can incur charges. It requires the DeepSeek price assumptions and their source to be recorded explicitly:
 
 ```bash
 python scripts/evaluate.py \
@@ -94,36 +94,34 @@ python scripts/evaluate.py \
   --price-source-url https://api-docs.deepseek.com/quick_start/pricing/
 ```
 
-Use `--limit 1 --skip-ragas` for a smaller deterministic smoke run. Do not run a full evaluation when the account balance is insufficient. The recorded prices are DeepSeek Flash cache-miss input and output rates used for this run; Gemini embedding charges are not included in the token-cost estimate.
+Use `--limit 1 --skip-ragas` for a smaller deterministic smoke run. Do not run a full evaluation when the account balance is insufficient. The recorded prices are DeepSeek Flash peak cache-miss input and output rates used for this run. Gemini embedding charges are not included because usage was unavailable. The estimated cost per 1,000 questions includes assistant inference only; Ragas judge cost is shown separately.
 
 ### Recorded results
 
-The dataset contains 30 cases. The graph completed 29; `multiturn_compare_followup` failed with `OutputParserException`. Deterministic scores use 30 as the requested-case denominator:
+All 30 graph cases completed. The run measured end-to-end latency across the 30 attempted cases. Ragas judged 30 rows; one Answer Relevancy score is missing after a Gemini embedding HTTP 503. Reported means use finite scores only, and missing scores remain missing. DeepSeek judged answers from the same model family, so these results may contain self-evaluation bias.
 
-| Metric | Result |
+| Required report metric | Result |
 |---|---:|
-| Intent accuracy | 0.867 |
-| Tour-resolution exact match | 0.900 |
-| Answer-status accuracy | 0.767 |
-| Clarification, conflict, and refusal accuracy | 0.750 |
-| Citation validity | 1.000 |
-| Numeric grounding rate | 1.000 |
-| Forbidden-claim rate | 0.000 |
-| Latency p50 / p95 | 7.41 s / 15.10 s |
+| Accuracy (Answer Correctness) | 0.371 (30/30) |
+| Incorrect/unsupported content proxy (1 − Faithfulness) | 0.453 |
+| Cases with Faithfulness below 1.0 | 60.0% (18/30) |
+| Latency p50 / p95 | 3.89 s / 20.38 s |
+| Assistant inference cost for 30 questions | $0.0561 |
+| Estimated assistant inference cost per 1,000 questions | $1.8683 |
 
-Citation validity is conditional on a citation being emitted: it checks whether each emitted citation ID was retrieved. It does not measure whether an answer that should cite a source emitted one, so it is not citation coverage or completeness.
+The p95 exceeds the prior 18.11-second investigation threshold. The slowest cases were `factual_china_visa_docs` at 34.30 seconds and `multiturn_compare_followup` at 25.90 seconds. The long visa answer included several passport and application details, while the comparison answer covered both tours. The latency is sensitive to provider response time and answer length.
 
-Ragas 0.3.1 results were partial because DeepSeek returned insufficient-balance errors during judging. Means below use only finite scores; missing values remain missing. The judge was also DeepSeek, the same model family used to generate answers, so these are not independent quality judgments.
+Ragas 0.3.1 retrieval and generation metrics:
 
 | Ragas metric | Finite cases | Mean |
 |---|---:|---:|
-| Context precision with reference | 21/30 | 0.508 |
-| Context recall | 22/30 | 0.727 |
-| Faithfulness | 21/30 | 0.726 |
-| Answer relevancy | 22/30 | 0.539 |
-| Answer correctness | 17/30 | 0.346 |
+| Context Precision with reference | 30/30 | 0.563 |
+| Context Recall | 30/30 | 0.467 |
+| Faithfulness | 30/30 | 0.547 |
+| Answer Relevancy | 29/30 | 0.520 |
+| Answer Correctness | 30/30 | 0.371 |
 
-The run recorded $0.4623 in DeepSeek usage and projected $15.4105 per 1,000 attempted cases at the supplied rates. This includes the completed Ragas judge calls and excludes Gemini embedding usage. The low answer-status and clarification/conflict/refusal scores, one parser failure, and missing Ragas judgments are material limitations; the scores should guide further review, not be read as production acceptance.
+The Ragas judge used 350,211 input and 458,309 output tokens, costing $0.6550 at the recorded rates. Total assistant plus judge spend for this evaluation was $0.7111; this one-time evaluation cost is excluded from the per-question inference estimate. The weakest quality results are Answer Correctness (0.371), Context Recall (0.467), and Faithfulness (0.547). They indicate that the assistant still misses reference details and sometimes produces claims the judge could not ground. These results are a take-home baseline, not production acceptance.
 
 ## Five-prompt interview demo
 
