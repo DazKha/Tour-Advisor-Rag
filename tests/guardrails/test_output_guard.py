@@ -178,6 +178,69 @@ def test_equivalent_range_wording_preserves_order():
     assert result.status == "answered"
 
 
+def test_dropping_strict_upper_bound_from_age_range_is_rejected():
+    result = validate_answer(
+        answer("Trẻ từ 5 đến 12 tuổi được áp dụng mức giá này.", ["child"]),
+        [chunk("child", "Trẻ từ 5 đến dưới 12 tuổi được áp dụng mức giá này")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_dropping_strict_bound_from_scalar_age_is_rejected():
+    result = validate_answer(
+        answer("Trẻ 12 tuổi được áp dụng mức giá này.", ["child"]),
+        [chunk("child", "Trẻ dưới 12 tuổi được áp dụng mức giá này")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_equivalent_strict_bound_synonyms_are_accepted():
+    result = validate_answer(
+        answer("Trẻ dưới 12 tuổi.", ["child"]),
+        [chunk("child", "Children under 12 years old.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_inclusive_minimum_bound_synonyms_are_accepted():
+    result = validate_answer(
+        answer("Ít nhất 5 khách.", ["capacity"]),
+        [chunk("capacity", "At least 5 people.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_inclusive_maximum_bound_synonyms_are_accepted():
+    result = validate_answer(
+        answer("Tối đa 5 khách.", ["capacity"]),
+        [chunk("capacity", "Up to 5 people.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_strict_greater_than_bound_synonyms_are_accepted():
+    result = validate_answer(
+        answer("Children over 5 years old.", ["child"]),
+        [chunk("child", "Trẻ trên 5 tuổi.")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_changing_strict_range_bound_to_inclusive_is_rejected():
+    result = validate_answer(
+        answer("Trẻ từ 5 đến tối đa 12 tuổi.", ["child"]),
+        [chunk("child", "Trẻ từ 5 đến dưới 12 tuổi")],
+    )
+
+    assert result.status == "unsupported"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),

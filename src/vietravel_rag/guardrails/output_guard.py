@@ -82,10 +82,21 @@ _UNIT_PATTERN = re.compile(
 )
 _RANGE_NUMBER = re.compile(
     r"(?<!\d)(?P<start>\d+(?:[.,]\d+)*)(?P<start_unit>\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))?"
-    r"(?:\s*[-–—]\s*|\s*(?:đến|tới|to)\s*(?:(?:dưới|trên|under|over|below|above)\s*)?)"
+    r"(?P<connector>\s*[-–—]\s*|\s*(?:đến|tới|to)\s*)"
+    r"(?P<end_qualifier>dưới|trên|under|over|below|above|ít\s+nhất|at\s+least|tối\s+đa|at\s+most)?\s*"
     r"(?P<end>\d+(?:[.,]\d+)*)(?=\s*(?:" + _UNIT_ALTERNATION + r")(?!\w))",
     re.IGNORECASE,
 )
+_BOUND_PREFIX = re.compile(
+    r"(?:^|[\s,;:])(?P<qualifier>at\s+least|at\s+most|up\s+to|ít\s+nhất|tối\s+đa|"
+    r"dưới|under|below|trên|over|above|từ|from|đến|to)\s*$",
+    re.IGNORECASE,
+)
+_BOUND_COMPARATORS = {
+    "dưới": "<", "under": "<", "below": "<", "trên": ">", "over": ">", "above": ">",
+    "ít nhất": ">=", "at least": ">=", "từ": ">=", "from": ">=",
+    "tối đa": "<=", "at most": "<=", "up to": "<=", "đến": "<=", "to": "<=",
+}
 _NUMBER = re.compile(r"(?<!\d)(?P<number>\d+(?:[.,]\d+)*)(?!\d)")
 _PROHIBITED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("bank_details", re.compile(r"\b(?:stk|số\s+tài\s+khoản|tài\s+khoản\s+(?:ngân\s+hàng|số)|chuyển\s+khoản\s+vào|bank\s+account)\b", re.IGNORECASE)),
@@ -106,6 +117,7 @@ def _content(chunk: Document) -> str:
 class NumericFact:
     value: str
     unit: str
+    comparator: str = "="
 
 
 def _canonical_date(year: str, month: str, day: str) -> str | None:
@@ -146,6 +158,22 @@ def _normalize_unit(unit: str | None, number_start: int, text: str) -> tuple[str
     return _UNIT_ALIASES.get(normalized, ("scalar", Decimal(1)))
 
 
+def _bound_before(text: str, position: int, default: str = "=") -> str:
+    prefix = text[max(0, position - 48) : position]
+    match = _BOUND_PREFIX.search(prefix)
+    if not match:
+        return default
+    qualifier = re.sub(r"\s+", " ", match.group("qualifier").casefold())
+    return _BOUND_COMPARATORS[qualifier]
+
+
+def _range_end_bound(match: re.Match[str]) -> str:
+    qualifier = re.sub(r"\s+", " ", (match.group("end_qualifier") or "").casefold())
+    if qualifier:
+        return _BOUND_COMPARATORS[qualifier]
+    return "<="
+
+
 def _number_facts(text: str) -> set[NumericFact]:
     facts: set[NumericFact] = set()
     date_spans: list[tuple[int, int]] = []
@@ -178,7 +206,9 @@ def _number_facts(text: str) -> set[NumericFact]:
             start_value = start * start_multiplier
             end_value = end * end_multiplier
             value = f"{format(start_value.normalize(), 'f')}:{format(end_value.normalize(), 'f')}"
-            facts.add(NumericFact(value, f"range:{unit}"))
+            start_bound = _bound_before(text, match.start(), ">=")
+            end_bound = _range_end_bound(match)
+            facts.add(NumericFact(value, f"range:{unit}", f"{start_bound}:{end_bound}"))
         range_spans.append(match.span())
 
     for match in _NUMBER.finditer(text):
@@ -194,7 +224,8 @@ def _number_facts(text: str) -> set[NumericFact]:
         if number is None:
             continue
         normalized_value = number * multiplier
-        facts.add(NumericFact(format(normalized_value.normalize(), "f"), unit))
+        comparator = _bound_before(text, match.start())
+        facts.add(NumericFact(format(normalized_value.normalize(), "f"), unit, comparator))
     return facts
 
 
