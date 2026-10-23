@@ -1,5 +1,7 @@
 """Factual retrieval scoped to backend-resolved tour codes."""
 
+from langchain_core.documents import Document
+
 _INTENT_SECTIONS: dict[str, tuple[str, ...]] = {
     "price": ("price",),
     "child_price": ("child_price", "price"),
@@ -16,6 +18,29 @@ _INTENT_SECTIONS: dict[str, tuple[str, ...]] = {
 def sections_for_intent(intent: str) -> tuple[str, ...] | None:
     """Return the knowledge sections relevant to an intent, when known."""
     return _INTENT_SECTIONS.get(intent)
+
+
+def retrieve_all_itinerary_chunks(tour_code: str, store) -> list[Document]:
+    """Fetch every citable itinerary knowledge chunk for an exact tour code."""
+    result = store.get(
+        where={
+            "$and": [
+                {"tour_code": tour_code},
+                {"document_type": "knowledge"},
+                {"section_type": "itinerary"},
+            ]
+        }
+    )
+    chunks = [
+        Document(page_content=content, metadata=metadata, id=identifier)
+        for identifier, content, metadata in zip(
+            result.get("ids", []),
+            result.get("documents", []),
+            result.get("metadatas", []),
+            strict=True,
+        )
+    ]
+    return sorted(chunks, key=lambda chunk: int(chunk.metadata.get("chunk_index", 0)))
 
 
 def retrieve_evidence(

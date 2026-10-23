@@ -253,27 +253,62 @@ def test_comparison_uses_ten_retrieval_limit_and_adjacent_day_uses_last_citation
 
 def test_recommendation_and_full_program_do_not_add_catalog_aggregates():
     tour_summary = summary("tour-a")
+    day_chunks = [
+        Document(
+            f"Ngày {index}",
+            metadata={
+                "chunk_id": f"day-{index}",
+                "tour_code": "tour-a",
+                "document_type": "knowledge",
+                "authority": "official_tour_pdf",
+                "section_type": "itinerary",
+                "chunk_index": index,
+            },
+        )
+        for index in range(1, 6)
+    ]
+    calls = []
 
     class Retriever:
         def retrieve(self, query, tour_codes, *, comparison=False):
             return []
 
-        def get_full_itinerary(self, tour_code):
-            raise AssertionError("catalog aggregate must not enter RAG contexts")
+        def get_all_itinerary_chunks(self, tour_code):
+            calls.append(tour_code)
+            return day_chunks
 
-    for query_analysis in (
-        analysis("recommend_tour", query="Tư vấn tour A"),
-        analysis("price", query="Cho tôi toàn bộ chương trình tour A"),
-    ):
-        result = retrieve_node(
-            {
-                "query_analysis": query_analysis,
-                "active_tour_codes": ["tour-a"],
-                "tour_summaries": [tour_summary],
-            },
-            Retriever(),
-        )
-        assert result["retrieved_chunks"] == []
+    recommender = Retriever()
+    recommendation = retrieve_node(
+        {
+            "query_analysis": analysis("recommend_tour", query="Tư vấn tour A"),
+            "active_tour_codes": ["tour-a"],
+            "tour_summaries": [tour_summary],
+        },
+        recommender,
+    )
+    specific_day = retrieve_node(
+        {
+            "query_analysis": analysis("itinerary", query="Ngày nào đi Bà Nà?"),
+            "active_tour_codes": ["tour-a"],
+            "tour_summaries": [tour_summary],
+        },
+        recommender,
+    )
+    full_program = retrieve_node(
+        {
+            "query_analysis": analysis(
+                "itinerary", query="Tour Đà Nẵng 5 ngày đi những đâu?"
+            ),
+            "active_tour_codes": ["tour-a"],
+            "tour_summaries": [tour_summary],
+        },
+        recommender,
+    )
+
+    assert recommendation["retrieved_chunks"] == []
+    assert specific_day["retrieved_chunks"] == []
+    assert full_program["retrieved_chunks"] == day_chunks
+    assert calls == ["tour-a"]
 
 
 def test_resolver_outputs_are_declared_in_langgraph_state_contract():

@@ -1,6 +1,9 @@
 from langchain_core.documents import Document
 
-from vietravel_rag.retrieval.retriever import retrieve_evidence
+from vietravel_rag.retrieval.retriever import (
+    retrieve_all_itinerary_chunks,
+    retrieve_evidence,
+)
 
 
 class RecordingStore:
@@ -80,3 +83,26 @@ def test_unknown_intent_keeps_tour_scoping_without_section_filter():
     store = RecordingStore()
     retrieve_evidence("Thông tin tour", ["tour-a"], store, intent="general")
     assert store.search_kwargs == {"k": 6, "filter": {"tour_code": "tour-a"}}
+
+
+def test_full_itinerary_uses_exact_citable_knowledge_chunks_in_day_order():
+    class ItineraryStore:
+        def get(self, *, where):
+            assert where == {
+                "$and": [
+                    {"tour_code": "tour-a"},
+                    {"document_type": "knowledge"},
+                    {"section_type": "itinerary"},
+                ]
+            }
+            return {
+                "ids": ["day-2", "day-1"],
+                "documents": ["Ngày 2", "Ngày 1"],
+                "metadatas": [
+                    {"chunk_id": "day-2", "chunk_index": 2},
+                    {"chunk_id": "day-1", "chunk_index": 1},
+                ],
+            }
+
+    chunks = retrieve_all_itinerary_chunks("tour-a", ItineraryStore())
+    assert [chunk.metadata["chunk_id"] for chunk in chunks] == ["day-1", "day-2"]

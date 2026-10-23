@@ -55,6 +55,7 @@
 **Interfaces:**
 - Consumes: `QueryAnalysis.intent`, standalone query, resolved tour codes, and a Chroma-compatible store.
 - Produces: `sections_for_intent(intent: str) -> tuple[str, ...] | None` and `retrieve_evidence(standalone_query: str, tour_codes: list[str], store, *, intent: str | None = None, comparison: bool = False) -> list`.
+- Also produces: `retrieve_all_itinerary_chunks(tour_code: str, store) -> list[Document]`, returning all official knowledge itinerary chunks sorted by `chunk_index` for a question that requests the complete tour itinerary.
 
 - [ ] **Step 1: Write failing tests for section-aware filters**
 
@@ -238,7 +239,8 @@ In `retrieve_node()`:
 
 - keep the knowledge chunks from `_retrieve()`;
 - remove the loop that appends `tour_summaries`;
-- remove automatic `get_full_itinerary()` expansion;
+- remove catalog summary and aggregate full-itinerary records from retrieved evidence;
+- for an itinerary question that explicitly requests a full program (including “tour X N ngày đi những đâu”), append all exact `document_type=knowledge` and `section_type=itinerary` chunks sorted by `chunk_index`;
 - retain exact adjacent itinerary lookup and deduplication; and
 - retain `tour_summaries` and `tour_candidates` elsewhere in graph state for routing and UI use.
 
@@ -252,7 +254,7 @@ Run:
 .venv/bin/python -m pytest tests/agent/test_routing.py tests/agent/test_graph.py tests/retrieval -v
 ```
 
-Expected: PASS with no catalog-only document in `retrieved_chunks`.
+Expected: PASS with no catalog-only document in `retrieved_chunks`; a full-program question receives all exact citable itinerary knowledge chunks.
 
 - [ ] **Step 5: Commit context cleanup**
 

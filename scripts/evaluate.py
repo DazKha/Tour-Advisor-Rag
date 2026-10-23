@@ -20,8 +20,11 @@ from vietravel_rag.config import Settings
 from vietravel_rag.evaluation.metrics import cost_summary, extract_contexts, score_cases
 from vietravel_rag.llm import get_chat_model, get_embeddings
 from vietravel_rag.retrieval.index import CATALOG_COLLECTION, KNOWLEDGE_COLLECTION
-from vietravel_rag.retrieval.resolver import get_full_itinerary, resolve_tours
-from vietravel_rag.retrieval.retriever import retrieve_evidence
+from vietravel_rag.retrieval.resolver import resolve_tours
+from vietravel_rag.retrieval.retriever import (
+    retrieve_all_itinerary_chunks,
+    retrieve_evidence,
+)
 
 PRICE_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
 DEFAULT_DATASET = Path("data/eval/eval_cases.jsonl")
@@ -133,9 +136,6 @@ def _graph(settings: Settings):
                 query, tour_codes, knowledge, intent=intent, comparison=comparison
             )
 
-        def get_full_itinerary(self, tour_code):
-            return get_full_itinerary(tour_code, catalog)
-
         def get_adjacent_itinerary(self, tour_code, chunk_index):
             from langchain_core.documents import Document
 
@@ -155,6 +155,9 @@ def _graph(settings: Settings):
                 metadata=result["metadatas"][0],
                 id=result["ids"][0],
             )
+
+        def get_all_itinerary_chunks(self, tour_code):
+            return retrieve_all_itinerary_chunks(tour_code, knowledge)
 
     return build_graph(
         {
