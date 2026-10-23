@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
   "chromadb",
   "langchain",
+  "langchain-community<0.4",
   "langchain-chroma",
   "langchain-openai",
   "langchain-google-genai>=4.0.0",
