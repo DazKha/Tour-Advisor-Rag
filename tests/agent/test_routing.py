@@ -2,7 +2,7 @@ from typing import get_type_hints
 
 from langchain_core.documents import Document
 
-from vietravel_rag.agent.nodes import resolve_tour_node, retrieve_node
+from vietravel_rag.agent.nodes import direct_response_node, resolve_tour_node, retrieve_node
 from vietravel_rag.models import AgentState, QueryAnalysis
 
 
@@ -38,6 +38,29 @@ def test_off_topic_and_general_route_without_tour_search():
     assert off_topic["route"] == "safe_response"
     assert general["route"] == "general"
     assert calls == []
+
+
+def test_general_route_returns_a_purposeful_capability_response():
+    result = direct_response_node({"route": "general"})
+
+    assert result["response"]["status"] == "answered"
+    assert "lịch trình" in result["response"]["answer"].casefold()
+
+
+def test_general_response_replaces_a_previous_turn_response():
+    result = direct_response_node({
+        "route": "general",
+        "input_decision": "continue",
+        "response": {
+            "status": "answered",
+            "answer": "Giá tour là 8.990.000đ.",
+            "citation_ids": ["old-price"],
+            "conflicts": [],
+        },
+    })
+
+    assert "lịch trình" in result["response"]["answer"].casefold()
+    assert result["response"]["citation_ids"] == []
 
 
 def test_one_candidate_updates_active_tour_and_multiple_require_clarification():

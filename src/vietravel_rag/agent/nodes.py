@@ -502,7 +502,7 @@ def output_guard_node(state: AgentState) -> dict[str, Any]:
 
 
 def direct_response_node(state: AgentState) -> dict[str, Any]:
-    if state.get("response"):
+    if state.get("response") and state.get("input_decision") != "continue":
         return {}
     route = state.get("route")
     if route == "clarification":
@@ -514,6 +514,15 @@ def direct_response_node(state: AgentState) -> dict[str, Any]:
     elif route == "safe_response":
         response = TourAnswer(
             status="escalate", answer="Mình chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu.",
+            citation_ids=[], conflicts=[],
+        )
+    elif route == "general":
+        response = TourAnswer(
+            status="answered",
+            answer=(
+                "Mình có thể hỗ trợ thông tin trong tài liệu về giá, lịch trình, dịch vụ bao gồm "
+                "hoặc không bao gồm, hành lý, thanh toán và chính sách tour."
+            ),
             citation_ids=[], conflicts=[],
         )
     else:

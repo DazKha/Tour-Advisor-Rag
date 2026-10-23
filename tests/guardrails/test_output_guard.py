@@ -52,6 +52,96 @@ def test_numeric_range_claim_matches_unicode_dash_in_source():
     assert result.status == "answered"
 
 
+def test_numeric_unit_swap_from_weight_to_percent_is_rejected():
+    result = validate_answer(
+        answer("Hành lý xách tay 10%/khách.", ["baggage"]),
+        [chunk("baggage", "Hành lý xách tay 10kg/khách")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_numeric_unit_swap_from_percent_to_people_is_rejected():
+    result = validate_answer(
+        answer("Trẻ em tính 75 khách giá người lớn.", ["child-price"]),
+        [chunk("child-price", "Trẻ em tính 75% giá người lớn")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_day_and_night_duration_units_are_not_interchangeable():
+    result = validate_answer(
+        answer("Tour kéo dài 10 ngày.", ["duration"]),
+        [chunk("duration", "Tour kéo dài 10 đêm")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_currency_units_are_not_interchangeable():
+    result = validate_answer(
+        answer("Chi phí là 10 USD.", ["cost"]),
+        [chunk("cost", "Chi phí là 10 VND")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_equivalent_currency_symbol_and_code_are_accepted():
+    result = validate_answer(
+        answer("Chi phí là $10.", ["cost"]),
+        [chunk("cost", "Chi phí là 10 USD")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_equivalent_date_formats_are_accepted():
+    result = validate_answer(
+        answer("Ngày khởi hành là 2026-10-23.", ["date"]),
+        [chunk("date", "Ngày khởi hành 23/10/2026")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_invalid_calendar_date_is_rejected():
+    result = validate_answer(
+        answer("Ngày khởi hành là 2026-02-31.", ["date"]),
+        [chunk("date", "Ngày khởi hành 31/02/2026")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_shared_range_unit_applies_to_both_numeric_endpoints():
+    result = validate_answer(
+        answer("Tour kéo dài từ 10 ngày đến 13 ngày.", ["duration"]),
+        [chunk("duration", "Tour kéo dài 10-13 ngày")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_vietnamese_hour_synonym_is_normalized():
+    result = validate_answer(
+        answer("Chương trình di chuyển trong 2 giờ.", ["time"]),
+        [chunk("time", "Chương trình di chuyển trong 2 tiếng")],
+    )
+
+    assert result.status == "answered"
+
+
+def test_age_range_propagates_shared_age_unit_to_both_endpoints():
+    result = validate_answer(
+        answer("Trẻ từ 5 tuổi đến dưới 12 tuổi được áp dụng mức giá này.", ["child"]),
+        [chunk("child", "Trẻ từ 5 đến dưới 12 tuổi được áp dụng mức giá này")],
+    )
+
+    assert result.status == "answered"
+
+
 def test_account_number_is_never_repeated():
     result = validate_answer(
         answer("Chuyển khoản vào tài khoản 123456789012.", ["bank"]),

@@ -14,6 +14,8 @@ class InputDecision:
 
 _INJECTION = re.compile(
     r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions?"
+    r"|ignore\s+(all\s+)?rules?"
+    r"|ignore\s+(all\s+)?instructions?"
     r"|bỏ qua\s+(mọi\s+)?(chỉ dẫn|quy tắc|hướng dẫn)"
     r"|tiết lộ\s+(system prompt|chỉ dẫn hệ thống)"
     r"|reveal\s+(the\s+)?(system prompt|hidden instructions)"
