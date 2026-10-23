@@ -8,6 +8,19 @@ def chunk(chunk_id, content):
     return Document(page_content=content, metadata={"chunk_id": chunk_id, "content": content})
 
 
+def itinerary_chunk(day):
+    content = f"Ngày {day}: Nội dung lịch trình"
+    return Document(
+        page_content=content,
+        metadata={
+            "chunk_id": f"itinerary-{day}",
+            "content": content,
+            "section_type": "itinerary",
+            "chunk_index": day,
+        },
+    )
+
+
 def answer(text, citations=None, status="answered"):
     return TourAnswer(
         status=status,
@@ -65,6 +78,28 @@ def test_numeric_unit_swap_from_percent_to_people_is_rejected():
     result = validate_answer(
         answer("Trẻ em tính 75 khách giá người lớn.", ["child-price"]),
         [chunk("child-price", "Trẻ em tính 75% giá người lớn")],
+    )
+
+    assert result.status == "unsupported"
+
+
+def test_complete_itinerary_sequence_supports_derived_day_count():
+    chunks = [itinerary_chunk(day) for day in range(1, 6)]
+
+    result = validate_answer(
+        answer("Tour gồm 5 ngày.", [f"itinerary-{day}" for day in range(1, 6)]),
+        chunks,
+    )
+
+    assert result.status == "answered"
+
+
+def test_incomplete_itinerary_sequence_does_not_support_total_day_count():
+    chunks = [itinerary_chunk(1), itinerary_chunk(5)]
+
+    result = validate_answer(
+        answer("Tour gồm 5 ngày.", ["itinerary-1", "itinerary-5"]),
+        chunks,
     )
 
     assert result.status == "unsupported"

@@ -313,6 +313,26 @@ def _fixed(status: str, text: str) -> TourAnswer:
     return TourAnswer(status=status, answer=text, citation_ids=[], conflicts=[])
 
 
+def _derived_itinerary_facts(chunks: Iterable[Document]) -> set[NumericFact]:
+    """Derive a total-day fact only from a complete reviewed day sequence."""
+    indices: set[int] = set()
+    for chunk in chunks:
+        if chunk.metadata.get("section_type") != "itinerary":
+            continue
+        try:
+            index = int(chunk.metadata.get("chunk_index"))
+        except (TypeError, ValueError):
+            continue
+        if index > 0:
+            indices.add(index)
+    if not indices:
+        return set()
+    last_day = max(indices)
+    if indices != set(range(1, last_day + 1)):
+        return set()
+    return {NumericFact(str(last_day), "duration_day")}
+
+
 def validate_answer(answer: TourAnswer, approved_chunks: Iterable[Document]) -> TourAnswer:
     """Reject answers with unapproved citations, unsupported numbers, or unsafe claims."""
     chunks = list(approved_chunks)
@@ -332,8 +352,9 @@ def validate_answer(answer: TourAnswer, approved_chunks: Iterable[Document]) -> 
     if answer.status in {"answered", "conflict"} and not answer.citation_ids:
         return _fixed("unsupported", "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời.")
 
-    evidence = " ".join(_content(by_id[citation]) for citation in answer.citation_ids)
-    supported = _number_facts(evidence)
+    cited_chunks = [by_id[citation] for citation in answer.citation_ids]
+    evidence = " ".join(_content(chunk) for chunk in cited_chunks)
+    supported = _number_facts(evidence) | _derived_itinerary_facts(cited_chunks)
     answer_facts = _number_facts(answer.answer)
     if any(fact.unit == "invalid_date" for fact in answer_facts):
         return _fixed("unsupported", "Mình chưa thể xác nhận con số này từ tài liệu tour.")
