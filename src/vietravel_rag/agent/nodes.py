@@ -7,18 +7,44 @@ from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.documents import Document
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import RemoveMessage, SystemMessage
 
-from vietravel_rag.agent.prompts import QUERY_ANALYSIS_SYSTEM_PROMPT
-from vietravel_rag.models import AgentState, QueryAnalysis
+from vietravel_rag.agent.prompts import (
+    ANSWER_GENERATION_SYSTEM_PROMPT,
+    EVIDENCE_ASSESSMENT_SYSTEM_PROMPT,
+    QUERY_ANALYSIS_SYSTEM_PROMPT,
+)
+from vietravel_rag.guardrails.input_guard import validate_input
+from vietravel_rag.guardrails.output_guard import validate_answer
+from vietravel_rag.models import AgentState, EvidenceAssessment, QueryAnalysis, TourAnswer
 
-
-_PRONOUNS = re.compile(r"\b(tour\s+đó|tour\s+này|tour\s+kia|chuyến\s+đó)\b", re.I)
-_ADJACENT = re.compile(r"\b(ngày\s+tiếp theo|ngày\s+trước đó|ngày\s+kế tiếp|ngày\s+trước)\b", re.I)
-_PREVIOUS = re.compile(r"\b(ngày\s+trước đó|ngày\s+trước)\b", re.I)
+_PRONOUNS = re.compile(r"\b(tour\s+đó|tour\s+này|tour\s+kia|chuyến\s+đó)\b", re.IGNORECASE)
+_ADJACENT = re.compile(r"\b(ngày\s+tiếp theo|ngày\s+trước đó|ngày\s+kế tiếp|ngày\s+trước)\b", re.IGNORECASE)
+_PREVIOUS = re.compile(r"\b(ngày\s+trước đó|ngày\s+trước)\b", re.IGNORECASE)
 _FULL_PROGRAM = re.compile(
     r"(toàn bộ chương trình|chương trình đầy đủ|lịch trình đầy đủ|trọn chương trình|full itinerary)",
-    re.I,
+    re.IGNORECASE,
+)
+_CURRENT_PRICE = re.compile(
+    r"\b(?:hiện\s+(?:tại|nay)|mới\s+nhất|hôm\s+nay|ngày\s+này|đang\s+áp\s+dụng|"
+    r"khuyến\s+mãi|ưu\s+đãi|promotion|current\s+price|today)\b",
+    re.IGNORECASE,
+)
+_EXECUTE_CANCEL = re.compile(
+    r"\b(?:tôi\s+muốn|hãy|giúp\s+(?:tôi|mình)|thực\s+hiện|xử\s+lý)\b.{0,30}"
+    r"\b(?:hủy\s+(?:tour|chuyến)|cancel)\b"
+    r"|\b(?:hủy\s+(?:tour|chuyến))\b.{0,30}\b(?:giúp\s+(?:tôi|mình)|ngay|thực\s+hiện|xử\s+lý)\b"
+    r"|\b(?:cancel\s+my\s+(?:tour|booking)|refund\s+my)\b",
+    re.IGNORECASE,
+)
+_FINANCIAL_ACTION = re.compile(
+    r"\b(?:số\s+tài\s+khoản|tài\s+khoản\s+ngân\s+hàng|chuyển\s+khoản|thanh\s+toán\s+giúp)\b",
+    re.IGNORECASE,
+)
+_VISA_GUARANTEE = re.compile(
+    r"\b(?:đảm\s+bảo|chắc\s+chắn|bảo\s+đảm).{0,30}\b(?:visa|thị\s+thực)\b"
+    r"|\b(?:visa|thị\s+thực).{0,30}\b(?:đậu|được\s+cấp|chắc\s+chắn)\b",
+    re.IGNORECASE,
 )
 
 
@@ -254,3 +280,245 @@ def retrieve_node(state: AgentState, retriever) -> dict[str, Any]:
         if key not in known:
             chunks.append(adjacent)
     return {"retrieved_chunks": chunks, "last_intent": analysis.intent}
+
+
+def _as_document(chunk: Any) -> Document:
+    if isinstance(chunk, Document):
+        return chunk
+    metadata = dict(chunk.get("metadata", {}))
+    metadata.setdefault("chunk_id", chunk.get("chunk_id"))
+    metadata.setdefault("content", chunk.get("content", chunk.get("text", "")))
+    return Document(page_content=metadata["content"], metadata=metadata)
+
+
+def input_guard_node(state: AgentState) -> dict[str, Any]:
+    all_messages = list(state.get("messages", []))
+    discarded = all_messages[:-10]
+    messages = all_messages[-10:]
+    latest = _content(messages[-1]) if messages else ""
+    decision = validate_input(latest)
+    removals = [RemoveMessage(id=message.id) for message in discarded if getattr(message, "id", None)]
+    result: dict[str, Any] = {"messages": [*removals, *messages], "input_decision": decision.route}
+    if decision.message:
+        result["input_message"] = decision.message
+        status = "escalate" if decision.route == "safe_response" else "clarification_needed"
+        result["response"] = TourAnswer(
+            status=status, answer=decision.message, citation_ids=[], conflicts=[]
+        ).model_dump()
+    return result
+
+
+def conflict_guard(state: AgentState, conflicts: list[dict]) -> dict[str, Any]:
+    """Apply reviewed source conflicts before free-form evidence selection."""
+    analysis = _analysis(state)
+    topics = {"baggage": "baggage", "price": "price", "child_price": "child_price"}
+    topic = topics.get(analysis.intent)
+    if not topic:
+        return {"evidence_status": None}
+    codes = set(state.get("active_tour_codes", []))
+    for record in conflicts:
+        if record.get("topic") != topic or record.get("tour_code") not in codes:
+            continue
+        by_id = {
+            str(doc.metadata.get("chunk_id")): doc
+            for doc in state.get("retrieved_chunks", [])
+            if doc.metadata.get("chunk_id")
+        }
+        chosen: list[Document] = []
+        for claim in record.get("claims", []):
+            chunk_id = str(claim.get("chunk_id", ""))
+            doc = by_id.get(chunk_id)
+            if doc is None:
+                content = str(claim.get("text", ""))
+                doc = Document(
+                    page_content=content,
+                    metadata={
+                        "chunk_id": chunk_id,
+                        "content": content,
+                        "tour_code": record["tour_code"],
+                        "authority": "official_tour_pdf",
+                        "page_start": claim.get("page"),
+                        "page_end": claim.get("page"),
+                        "document_type": "knowledge",
+                    },
+                )
+            chosen.append(doc)
+        if len(chosen) >= 2:
+            return {
+                "retrieved_chunks": [*state.get("retrieved_chunks", []), *[
+                    doc for doc in chosen if doc not in state.get("retrieved_chunks", [])
+                ]],
+                "evidence_status": "conflict",
+                "approved_chunk_ids": [str(doc.metadata["chunk_id"]) for doc in chosen],
+                "approved_chunks": chosen,
+                "conflict_description": str(record.get("topic", "Mâu thuẫn trong tài liệu")),
+            }
+    return {"evidence_status": None}
+
+
+def assess_evidence(state: AgentState, model) -> dict[str, Any]:
+    """Assess retrieved evidence and constrain selected IDs to supplied official chunks."""
+    if state.get("evidence_status") == "conflict":
+        return {
+            "evidence_assessment": EvidenceAssessment(
+                status="conflict",
+                approved_chunk_ids=list(state.get("approved_chunk_ids", [])),
+                reason=str(state.get("conflict_description", "Nguồn có mâu thuẫn.")),
+            ),
+            "approved_chunk_ids": list(state.get("approved_chunk_ids", [])),
+            "approved_chunks": list(state.get("approved_chunks", [])),
+        }
+    analysis = _analysis(state)
+    if analysis.intent == "availability" or (
+        analysis.intent in {"price", "child_price"} and _CURRENT_PRICE.search(analysis.standalone_query)
+    ):
+        assessment = EvidenceAssessment(
+            status="realtime_required", approved_chunk_ids=[], reason="Cần kiểm tra dữ liệu thời gian thực."
+        )
+        return {"evidence_assessment": assessment, "evidence_status": assessment.status, "approved_chunk_ids": []}
+    high_risk = (
+        analysis.intent in {"health", "complaint"}
+        or (analysis.intent == "visa" and bool(_VISA_GUARANTEE.search(analysis.standalone_query)))
+        or (analysis.intent == "payment" and bool(_FINANCIAL_ACTION.search(analysis.standalone_query)))
+        or (analysis.intent == "cancellation" and bool(_EXECUTE_CANCEL.search(analysis.standalone_query)))
+    )
+    if high_risk:
+        assessment = EvidenceAssessment(
+            status="high_risk", approved_chunk_ids=[], reason="Yêu cầu cần nhân viên hoặc chuyên gia hỗ trợ."
+        )
+        return {"evidence_assessment": assessment, "evidence_status": assessment.status, "approved_chunk_ids": []}
+
+    chunks = [
+        _as_document(chunk)
+        for chunk in state.get("retrieved_chunks", [])
+        if chunk.metadata.get("authority") == "official_tour_pdf"
+        and chunk.metadata.get("document_type") == "knowledge"
+    ]
+    ids = [str(doc.metadata.get("chunk_id")) for doc in chunks if doc.metadata.get("chunk_id")]
+    prompt_data = "\n".join(
+        f"chunk_id={doc.metadata.get('chunk_id')}\n{doc.metadata.get('content', doc.page_content)}"
+        for doc in chunks
+    )
+    structured = model.with_structured_output(EvidenceAssessment)
+    raw = structured.invoke(
+        [
+            SystemMessage(content=EVIDENCE_ASSESSMENT_SYSTEM_PROMPT),
+            SystemMessage(content=f"Câu hỏi: {analysis.standalone_query}\nIntent: {analysis.intent}\nBằng chứng:\n{prompt_data}"),
+        ]
+    )
+    assessment = raw if isinstance(raw, EvidenceAssessment) else EvidenceAssessment.model_validate(raw)
+    if any(chunk_id not in ids for chunk_id in assessment.approved_chunk_ids):
+        assessment = EvidenceAssessment(
+            status="insufficient", approved_chunk_ids=[], reason="Mô hình chọn chunk không có trong bằng chứng."
+        )
+    approved_ids = list(dict.fromkeys(assessment.approved_chunk_ids))
+    approved = [doc for doc in chunks if doc.metadata.get("chunk_id") in approved_ids]
+    return {
+        "evidence_assessment": assessment,
+        "evidence_status": assessment.status,
+        "approved_chunk_ids": approved_ids,
+        "approved_chunks": approved,
+    }
+
+
+def generate_answer(state: AgentState, model) -> dict[str, Any]:
+    """Generate one structured answer from approved evidence, without retrying failures."""
+    status = state.get("evidence_status")
+    analysis = _analysis(state)
+    if status == "realtime_required":
+        answer = TourAnswer(
+            status="escalate",
+            answer="Mình không thể kiểm tra chỗ trống hoặc giá hiện hành theo thời gian thực. Vui lòng liên hệ Vietravel để được xác nhận.",
+            citation_ids=[], conflicts=[],
+        )
+        return {"response": answer.model_dump()}
+    if status == "high_risk":
+        answer = TourAnswer(
+            status="escalate",
+            answer="Yêu cầu này cần nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp. Mình không thể xác nhận hay thực hiện thay.",
+            citation_ids=[], conflicts=[],
+        )
+        return {"response": answer.model_dump()}
+    if status == "insufficient":
+        answer = TourAnswer(
+            status="unsupported",
+            answer="Mình chưa tìm thấy đủ căn cứ trong tài liệu tour để trả lời chính xác.",
+            citation_ids=[], conflicts=[],
+        )
+        return {"response": answer.model_dump()}
+
+    approved = list(state.get("approved_chunks", []))
+    evidence = "\n\n".join(
+        f"chunk_id={doc.metadata.get('chunk_id')} | page={doc.metadata.get('page_start', '')}\n"
+        f"{doc.metadata.get('content', doc.page_content)}"
+        for doc in approved
+    )
+    guidance = [
+        item
+        for item in state.get("sales_guidance", [])
+        if item.get("intent") == analysis.intent
+    ]
+    context = (
+        f"Intent: {analysis.intent}\nCâu hỏi: {analysis.standalone_query}\n"
+        f"Trạng thái bằng chứng: {status}\nHướng dẫn giao tiếp (không phải dữ kiện): {guidance}\n"
+        f"Bằng chứng đã duyệt:\n{evidence}"
+    )
+    try:
+        structured = model.with_structured_output(TourAnswer)
+        raw = structured.invoke(
+            [SystemMessage(content=ANSWER_GENERATION_SYSTEM_PROMPT), SystemMessage(content=context)]
+        )
+        answer = raw if isinstance(raw, TourAnswer) else TourAnswer.model_validate(raw)
+    except Exception:  # noqa: BLE001 - provider failures must become a safe, non-retried response
+        answer = TourAnswer(
+            status="unsupported",
+            answer="Mình chưa thể tạo câu trả lời có căn cứ từ tài liệu tour.",
+            citation_ids=[], conflicts=[],
+        )
+    return {"draft_response": answer.model_dump()}
+
+
+def output_guard_node(state: AgentState) -> dict[str, Any]:
+    draft = state.get("draft_response") or state.get("response") or {}
+    answer = draft if isinstance(draft, TourAnswer) else TourAnswer.model_validate(draft)
+    approved = list(state.get("approved_chunks", []))
+    if state.get("evidence_status") == "conflict" and len(approved) >= 2:
+        claims = [str(doc.metadata.get("content") or doc.page_content).strip() for doc in approved[:2]]
+        ids = [str(doc.metadata["chunk_id"]) for doc in approved[:2]]
+        answer = TourAnswer(
+            status="conflict",
+            answer=(
+                f"Tài liệu ghi hai nội dung khác nhau: “{claims[0]}” và “{claims[1]}”. "
+                "Vui lòng xác nhận thông tin này với Vietravel."
+            ),
+            citation_ids=ids,
+            conflicts=["Nguồn tài liệu có nội dung mâu thuẫn."],
+        )
+    validated = validate_answer(answer, approved)
+    return {
+        "response": validated.model_dump(),
+        "last_citation_ids": validated.citation_ids,
+    }
+
+
+def direct_response_node(state: AgentState) -> dict[str, Any]:
+    if state.get("response"):
+        return {}
+    route = state.get("route")
+    if route == "clarification":
+        response = TourAnswer(
+            status="clarification_needed",
+            answer="Bạn muốn hỏi về tour nào? Vui lòng cho mình biết tên tour hoặc điểm đến.",
+            citation_ids=[], conflicts=[],
+        )
+    elif route == "safe_response":
+        response = TourAnswer(
+            status="escalate", answer="Mình chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu.",
+            citation_ids=[], conflicts=[],
+        )
+    else:
+        response = TourAnswer(
+            status="unsupported", answer="Mình chưa tìm thấy tour phù hợp trong dữ liệu hiện có.",
+            citation_ids=[], conflicts=[],
+        )
+    return {"response": response.model_dump()}

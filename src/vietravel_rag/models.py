@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Annotated, Literal, TypedDict
 
 from langchain_core.documents import Document
-
+from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 
 
@@ -87,7 +87,7 @@ class TourAnswer(BaseModel):
 
 
 class AgentState(TypedDict, total=False):
-    messages: list
+    messages: Annotated[list, add_messages]
     query_analysis: QueryAnalysis | dict | None
     route: Literal["safe_response", "general", "clarification", "unsupported", "retrieve"] | None
     tour_candidates: list[Document]
@@ -98,3 +98,11 @@ class AgentState(TypedDict, total=False):
     last_intent: str | None
     last_citation_ids: list[str]
     response: dict | None
+    input_decision: str | None
+    input_message: str | None
+    conflict_description: str | None
+    draft_response: dict | None
+    sales_guidance: list[dict]
+    approved_chunk_ids: list[str]
+    evidence_assessment: EvidenceAssessment | dict | None
+    approved_chunks: list[Document]
