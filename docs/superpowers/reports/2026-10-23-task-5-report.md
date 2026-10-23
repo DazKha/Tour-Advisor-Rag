@@ -56,3 +56,14 @@
 - `.venv/bin/pytest -q` — 119 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
 - Changed-file Ruff and `git diff --check` — passed; ordinary date, range, and currency regressions remain green.
 - No secret values or source-input directories were accessed.
+
+## Review Fix Round 4
+
+- RED: reproduced both comparator errors: a `from 5` minimum accepted `more than 5`, and `not under 12` was interpreted as strict `under 12`.
+- GREEN: comparator aliases now come from one canonical vocabulary sorted longest-first, so negated and multiword phrases take precedence over suffixes. Strict/inclusive English and Vietnamese forms map to `>`, `<`, `>=`, or `<=`; range endpoints use defaults only when no recognized qualifier is present.
+- Added matrix regressions for strict, inclusive-minimum, inclusive-maximum, and qualified-range synonyms, plus both reported cases.
+- Added prefix currency-code normalization, with `VND 8,990,000` and `USD 100` validated against equivalent suffix/symbol evidence.
+- `.venv/bin/pytest -q tests/guardrails/test_output_guard.py` — 41 passed.
+- `.venv/bin/pytest -q` — 129 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` — passed; date, range, and currency regressions remain green.
+- No secret values or source-input directories were accessed.
