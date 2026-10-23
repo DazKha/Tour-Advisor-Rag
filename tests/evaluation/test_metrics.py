@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from scripts.evaluate import _write_json, load_cases, ragas_records, validate_cases
+from scripts.evaluate import (
+    _write_json,
+    load_cases,
+    ragas_records,
+    summarize_ragas_rows,
+    validate_cases,
+)
 from vietravel_rag.evaluation.metrics import (
     citation_validity,
     cost_summary,
@@ -172,6 +178,55 @@ def test_ragas_adapter_preserves_context_ids_and_standard_fields():
         "retrieved_context_ids": ["chunk_1"],
         "response": "response",
         "reference": "reference text",
+    }
+
+
+def test_ragas_summary_uses_only_finite_scores_and_reports_hallucination_rates():
+    rows = [
+        {
+            "llm_context_precision_with_reference": 0.8,
+            "context_recall": 1.0,
+            "faithfulness": 1.0,
+            "answer_relevancy": 0.7,
+            "answer_correctness": 0.9,
+        },
+        {
+            "llm_context_precision_with_reference": 0.6,
+            "context_recall": None,
+            "faithfulness": 0.5,
+            "answer_relevancy": 0.9,
+            "answer_correctness": 0.7,
+        },
+    ]
+    summary = summarize_ragas_rows(rows)
+    assert summary["metrics"]["context_precision"] == {
+        "finite_cases": 2,
+        "total_cases": 2,
+        "mean": 0.7,
+    }
+    assert summary["metrics"]["context_recall"]["finite_cases"] == 1
+    assert summary["report_metrics"]["accuracy"] == 0.8
+    assert summary["report_metrics"]["unsupported_claim_rate"] == 0.25
+    assert summary["report_metrics"]["cases_with_unsupported_claim_rate"] == 0.5
+
+
+def test_ragas_summary_excludes_nan_and_infinity_from_finite_counts():
+    summary = summarize_ragas_rows(
+        [
+            {
+                "llm_context_precision_with_reference": math.nan,
+                "context_recall": math.inf,
+                "faithfulness": -math.inf,
+                "answer_relevancy": None,
+                "answer_correctness": float("nan"),
+            }
+        ]
+    )
+    assert all(metric["finite_cases"] == 0 for metric in summary["metrics"].values())
+    assert summary["report_metrics"] == {
+        "accuracy": None,
+        "unsupported_claim_rate": None,
+        "cases_with_unsupported_claim_rate": None,
     }
 
 

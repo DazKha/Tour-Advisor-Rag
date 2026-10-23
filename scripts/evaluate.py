@@ -25,6 +25,13 @@ from vietravel_rag.retrieval.retriever import retrieve_evidence
 
 PRICE_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
 DEFAULT_DATASET = Path("data/eval/eval_cases.jsonl")
+RAGAS_METRICS = {
+    "context_precision": "llm_context_precision_with_reference",
+    "context_recall": "context_recall",
+    "faithfulness": "faithfulness",
+    "answer_relevancy": "answer_relevancy",
+    "answer_correctness": "answer_correctness",
+}
 
 
 def load_cases(path: str | Path) -> list[dict]:
@@ -177,6 +184,44 @@ def ragas_records(cases: list[dict], results: list[dict]) -> list[dict]:
     ]
 
 
+def summarize_ragas_rows(rows: list[dict]) -> dict:
+    """Aggregate finite Ragas scores and derive report-facing quality rates."""
+    metrics = {}
+    finite_by_metric = {}
+    for name, column in RAGAS_METRICS.items():
+        finite = [
+            float(row[column])
+            for row in rows
+            if isinstance(row.get(column), (int, float))
+            and math.isfinite(float(row[column]))
+        ]
+        finite_by_metric[name] = finite
+        metrics[name] = {
+            "finite_cases": len(finite),
+            "total_cases": len(rows),
+            "mean": round(sum(finite) / len(finite), 6) if finite else None,
+        }
+
+    faithfulness = finite_by_metric["faithfulness"]
+    report_metrics = {
+        "accuracy": metrics["answer_correctness"]["mean"],
+        "unsupported_claim_rate": (
+            round(1.0 - metrics["faithfulness"]["mean"], 6)
+            if metrics["faithfulness"]["mean"] is not None
+            else None
+        ),
+        "cases_with_unsupported_claim_rate": (
+            round(sum(score < 1.0 for score in faithfulness) / len(faithfulness), 6)
+            if faithfulness
+            else None
+        ),
+    }
+    return {
+        "metrics": metrics,
+        "report_metrics": report_metrics,
+    }
+
+
 def run_ragas(cases: list[dict], results: list[dict], settings: Settings) -> dict:
     """Run Ragas 0.3 metrics using DeepSeek judge and Gemini embeddings."""
     from ragas import EvaluationDataset, evaluate
@@ -218,12 +263,14 @@ def run_ragas(cases: list[dict], results: list[dict], settings: Settings) -> dic
         show_progress=False,
         raise_exceptions=False,
     )
+    metric_rows = evaluation.to_pandas().to_dict(orient="records")
     return {
         "version": package_version("ragas"),
         "judge_model": settings.llm_model,
         "judge_provider": "DeepSeek OpenAI-compatible chat endpoint",
         "judge_model_self_evaluation": True,
-        "metric_rows": evaluation.to_pandas().to_dict(orient="records"),
+        "metric_rows": metric_rows,
+        "summary": summarize_ragas_rows(metric_rows),
         "fields": sorted(records[0]) if records else [],
         "judge_usage": {
             "input_tokens": usage.input_tokens,
@@ -361,6 +408,18 @@ def main(argv: list[str] | None = None) -> int:
         },
         "limitations": {"judge_model_self_evaluation": True},
         "metric_definitions": {
+            "accuracy": "Mean Ragas Answer Correctness over finite metric scores.",
+            "unsupported_claim_rate": (
+                "1 minus mean Ragas Faithfulness over finite metric scores; proxy for unsupported content."
+            ),
+            "cases_with_unsupported_claim_rate": (
+                "Fraction of finite Faithfulness cases with score below 1.0."
+            ),
+            "context_precision": "Ragas LLMContextPrecisionWithReference mean over finite scores.",
+            "context_recall": "Ragas LLMContextRecall mean over finite scores.",
+            "faithfulness": "Ragas Faithfulness mean over finite scores.",
+            "answer_relevancy": "Ragas ResponseRelevancy mean over finite scores.",
+            "answer_correctness": "Ragas AnswerCorrectness mean over finite scores.",
             "citation_validity": (
                 "Fraction of emitted citation IDs that appear among retrieved IDs; this does not "
                 "measure citation coverage or completeness."
