@@ -109,3 +109,73 @@ The four PDFs, sales-guidance XLSX, and assignment DOCX were SHA-256 checked bef
 
 - PyMuPDF emitted seven SWIG deprecation warnings under Python 3.13.5; extraction and all assertions completed successfully.
 - Baggage content is contained in the source's included/registration sections rather than emitted as a standalone section type, by design to preserve source context and the mandated stable conflict IDs.
+
+## Fix round 1/5
+
+This section supersedes the initial artifact counts above for the round-one review. The prior report's baseline remains for traceability.
+
+### RED evidence
+
+Before changing production code, added regressions for each review finding. The first combined run was:
+
+```text
+.venv/bin/python -m pytest tests/ingestion/test_pdf_extract.py tests/ingestion/test_chunker.py tests/ingestion/test_validation.py -v
+6 failed, 10 passed
+```
+
+The six expected failures were numeric-line cleanup removing all digits; oversized registration material remaining one chunk; unsupported validator arguments for mixed-tour, split-price, sales-guidance, and conflict checks. The conflict test requires a wrong page that is still inside the cited chunk's page range.
+
+Additional heading-classification regression:
+
+```text
+.venv/bin/python -m pytest tests/ingestion/test_chunker.py::test_china_visa_requirements_are_not_mislabeled_as_force_majeure -q
+1 failed: the visa section was absent because it had been absorbed into force_majeure.
+```
+
+### GREEN implementation and verification
+
+- Extraction now preserves repeated and numeric lines. It removes UI boilerplate and only removes a page label when the text equals the one-based page number and its block is positioned in the page footer. Duplicate text is removed only when both text and bounding box match exactly.
+- `ChunkRecord.page_texts` stores per-page content for every chunk. The chunker's source-row grouping populates that map, allowing conflict citations to be checked against the exact page text.
+- Registration and visa material is grouped at source list/subsection boundaries into deterministic semantic units capped at 1,800 characters when the source item itself permits. Each list item's continuation remains together. The required Đà Nẵng baggage reference remains `danang-central-5d4n_registration_notes_01`, and it includes the cited page-4 content.
+- Heading matching is exact for policy headings, preventing a continuation sentence mentioning “trường hợp bất khả kháng” from opening a new section. Visa requirements, notes, and contacts now receive their own section types.
+- Corpus validation checks complete age rows and detects spillover price records, mixed tour identities, numerical commercial/policy facts in sales guidance, and conflict claims that do not appear in the cited chunk's exact cited page text.
+- `audit_chunks.py` now loads and validates `sales_guidance.json` and `conflicts.json` as well as the chunk and catalog files.
+
+Final verification commands and outputs:
+
+```text
+.venv/bin/python -m pytest tests/ingestion -v
+21 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+
+.venv/bin/python -m pytest -q
+24 passed, 0 failed (7 PyMuPDF/SWIG deprecation warnings)
+
+.venv/bin/python scripts/ingest.py --build-artifacts
+PASS; sources=4; pages=28; factual_chunks=80; catalog_records=8; unclassified_sections=0; artifacts=5
+
+.venv/bin/python scripts/audit_chunks.py
+PASS; chunks=80; catalog=8; sales_guidance=20; conflicts=1; unclassified=0
+```
+
+### Manual artifact and audit review
+
+- Reviewed all 17 registration chunks. Đà Nẵng and Miền Tây each split into five chunks of 639–1,785 characters; Thái Lan split into three chunks of 417–1,769 characters; Trung Quốc split into four chunks of 716–1,663 characters. All boundaries fall at list-item or subsection starts, with no chunk exceeding the 1,800-character target.
+- Confirmed `danang-central-5d4n_registration_notes_01` spans pages 3–4, contains the 20kg/under-7kg statement, and its `page_texts[4]` contains that statement verbatim. The first claim is verbatim in `danang-central-5d4n_included_01` page 3.
+- Confirmed both conflict JSON claims match their cited page text exactly after whitespace normalization: page 3 “Hành lý ký gửi 23kg, xách tay 10kg/khách”; page 4 “xách tay dưới 7kg/1khách”. The negative regression changes the second citation to page 3, still within the chunk's 3–4 range, and validation rejects it because the claim is only on page 4.
+- Reviewed the China section split: force-majeure content is a 727-character policy unit, visa requirements are six units with a maximum of 1,696 characters, and “Thông tin liên lạc” is a separate contact unit. Visa requirements and contact details no longer appear under force majeure.
+- Audit reports two 3,408-character standard-cancellation units (Thái Lan and Trung Quốc). They remain intact because each contains a connected cancellation schedule and splitting would separate policy conditions. The oversized warning list and review decision are recorded in `chunking_report.json`.
+- All 5 artifacts rebuilt; counts are 80 factual chunks, 8 catalog records, 20 guidance scenarios, and 1 conflict record. Validation returns `PASS` with zero errors and zero unclassified sections.
+
+### Source immutability and round-one commit
+
+No file under `raw_data/` or `reference/` was edited, moved, renamed, or deleted. No `.env` file was read. The assignment DOCX was not ingested. The five rebuilt artifacts, code, and tests were committed in the round-one implementation commit; this report was committed in its follow-up documentation commit.
+
+### Round-one concerns
+
+- Seven PyMuPDF/SWIG deprecation warnings remain; tests and extraction pass.
+- The two 3,408-character cancellation schedules exceed the semantic size target but are intentionally kept atomic to avoid splitting policy conditions.
+
+### Round-one commit hashes
+
+- Code, tests, validator, and rebuilt artifacts: `b923a9a8c413ce2e6333b4b1788d35f65be1fdef`
+- Round-one report update: recorded in the follow-up documentation commit.
