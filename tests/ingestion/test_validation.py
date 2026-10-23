@@ -155,3 +155,23 @@ def test_validator_rejects_wrong_required_stable_chunk_id_when_citation_is_valid
     result = validate_corpus(chunks + [alternate], catalog, [], bad)
     assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
 
+
+def test_audit_rejects_absent_holiday_cancellation_chunks(corpus):
+    chunks, catalog, conflicts = corpus
+    changed = [chunk for chunk in chunks if chunk.section_type != "cancellation_holiday"]
+    result = validate_corpus(changed, catalog, [], conflicts)
+    assert any("cancellation_holiday" in error for error in result["errors"])
+
+
+def test_audit_rejects_holiday_policy_merged_into_standard_chunk(corpus):
+    chunks, catalog, conflicts = corpus
+    standard = next(chunk for chunk in chunks if chunk.section_type == "cancellation_standard")
+    holiday = next(chunk for chunk in chunks if chunk.section_type == "cancellation_holiday")
+    changed = [chunk for chunk in chunks if chunk.chunk_id != holiday.chunk_id]
+    changed = [
+        standard.model_copy(update={"content": standard.content + "\n" + holiday.section_title + "\n" + holiday.content})
+        if chunk.chunk_id == standard.chunk_id else chunk
+        for chunk in changed
+    ]
+    result = validate_corpus(changed, catalog, [], conflicts)
+    assert any("holiday" in error.casefold() and "standard" in error.casefold() for error in result["errors"])

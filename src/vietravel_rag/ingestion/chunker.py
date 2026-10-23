@@ -14,7 +14,11 @@ SECTION_HEADINGS = {
     "child_price": ("giá vé trẻ em",),
     "payment": ("điều kiện thanh toán",),
     "cancellation_standard": ("các điều kiện hủy tour đối với ngày thường", "các điều kiện hủy tour ngày thường"),
-    "cancellation_holiday": ("các điều kiện hủy tour đối với ngày lễ", "các điều kiện hủy tour ngày lễ"),
+    "cancellation_holiday": (
+        "các điều kiện hủy tour đối với ngày lễ",
+        "các điều kiện hủy tour đối với ngày lễ, tết",
+        "các điều kiện hủy tour ngày lễ",
+    ),
     "force_majeure": ("trường hợp bất khả kháng",),
 }
 _DAY = re.compile(r"^Ngày\s+(\d+)\s*:\s*(.*)$", re.I)

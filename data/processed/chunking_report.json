@@ -3,7 +3,7 @@
     "status": "PASS",
     "errors": [],
     "unclassified_sections": 0,
-    "chunk_count": 80,
+    "chunk_count": 84,
     "catalog_count": 8
   },
   "source_count": 4,
@@ -14,6 +14,7 @@
     "china-lijiang-dali-shangrila": 10
   },
   "section_counts": {
+    "cancellation_holiday": 4,
     "cancellation_standard": 4,
     "child_price": 4,
     "contact": 4,
@@ -41,21 +42,10 @@
     "child_price": 4,
     "payment": 4,
     "cancellation_standard": 4,
-    "cancellation_holiday": 0
+    "cancellation_holiday": 4
   },
   "baggage_claims_reviewed": 2,
-  "oversized_semantic_units": [
-    {
-      "chunk_id": "thailand-bangkok-pattaya_cancellation_standard_01",
-      "section_type": "cancellation_standard",
-      "characters": 3408
-    },
-    {
-      "chunk_id": "china-lijiang-dali-shangrila_cancellation_standard_01",
-      "section_type": "cancellation_standard",
-      "characters": 3408
-    }
-  ],
+  "oversized_semantic_units": [],
   "semantic_unit_limit_chars": 1800,
   "registration_semantic_splits": {
     "danang-central-5d4n": {
@@ -121,18 +111,7 @@
       "split_at_list_or_subsection_boundaries": true
     }
   },
-  "oversized_review_decisions": [
-    {
-      "chunk_id": "thailand-bangkok-pattaya_cancellation_standard_01",
-      "decision": "retain the complete cancellation schedule as one atomic policy unit",
-      "page_range": "5-6"
-    },
-    {
-      "chunk_id": "china-lijiang-dali-shangrila_cancellation_standard_01",
-      "decision": "retain the complete cancellation schedule as one atomic policy unit",
-      "page_range": "6-7"
-    }
-  ],
+  "oversized_review_decisions": [],
   "removed_content": [
     "confirmed bottom-of-page labels matching the one-based page number",
     "Xem chương trình tour UI text",

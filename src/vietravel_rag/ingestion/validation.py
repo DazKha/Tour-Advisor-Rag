@@ -109,6 +109,17 @@ def validate_corpus(
             errors.append(f"Spreadsheet guidance leaked into factual chunks: {chunk.chunk_id}")
     counts = Counter((c.tour_code, c.section_type) for c in chunks)
     for source in TOUR_SOURCES:
+        standard_chunks = [c for c in chunks if c.tour_code == source.tour_code and c.section_type == "cancellation_standard"]
+        holiday_chunks = [c for c in chunks if c.tour_code == source.tour_code and c.section_type == "cancellation_holiday"]
+        if len(standard_chunks) != 1:
+            errors.append(f"Expected exactly one cancellation_standard chunk: {source.tour_code}")
+        if len(holiday_chunks) != 1:
+            errors.append(f"Expected exactly one cancellation_holiday chunk: {source.tour_code}")
+        holiday_heading = "Các điều kiện hủy tour đối với ngày lễ, Tết"
+        if any(holiday_heading.casefold() in (c.section_title + "\n" + c.content).casefold() for c in standard_chunks):
+            errors.append(f"Holiday cancellation policy merged into cancellation_standard: {source.tour_code}")
+        if len(holiday_chunks) == 1 and holiday_heading.casefold() not in (holiday_chunks[0].section_title + "\n" + holiday_chunks[0].content).casefold():
+            errors.append(f"cancellation_holiday chunk is missing its applicability heading: {source.tour_code}")
         price_chunks = [c for c in chunks if c.tour_code == source.tour_code and c.section_type == "price"]
         price_spills = [c for c in chunks if c.tour_code == source.tour_code and c.section_type != "price"
                         and "giá dịch vụ" in c.section_title.casefold()]

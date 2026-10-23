@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -89,3 +90,18 @@ def test_china_visa_requirements_are_not_mislabeled_as_force_majeure(all_chunks)
     assert all("Ghi chú" not in chunk.content for chunk in force_majeure)
     assert all(len(chunk.content) > 100 for chunk in force_majeure)
     assert all(len(chunk.content) <= 1800 for chunk in visa)
+
+
+def test_each_tour_has_separate_standard_and_holiday_cancellation_units(all_chunks):
+    standard = [chunk for chunk in all_chunks if chunk.section_type == "cancellation_standard"]
+    holiday = [chunk for chunk in all_chunks if chunk.section_type == "cancellation_holiday"]
+    assert len(standard) == len(holiday) == 4
+    assert all("Các điều kiện hủy tour đối với ngày lễ, Tết" not in chunk.section_title + chunk.content for chunk in standard)
+    assert all("Các điều kiện hủy tour đối với ngày thường" not in chunk.content for chunk in holiday)
+    assert all("Các điều kiện hủy tour đối với ngày lễ, Tết" in chunk.section_title for chunk in holiday)
+    assert all("%" in chunk.content for chunk in holiday)
+
+
+def test_chunking_report_records_four_reviewed_holiday_chunks():
+    report = json.loads((ROOT / "data" / "processed" / "chunking_report.json").read_text(encoding="utf-8"))
+    assert report["reviewed_chunk_counts"]["cancellation_holiday"] == 4
