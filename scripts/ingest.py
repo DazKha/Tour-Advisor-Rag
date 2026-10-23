@@ -176,9 +176,9 @@ def main() -> int:
             settings = Settings()
         except ValidationError as exc:
             missing = {error["loc"][0] for error in exc.errors()}
-            if "openai_api_key" in missing:
+            if "gemini_api_key" in missing:
                 raise SystemExit(
-                    "OPENAI_API_KEY is required to build the production embedding index"
+                    "GEMINI_API_KEY is required to build the production embedding index"
                 ) from None
             if "deepseek_api_key" in missing:
                 raise SystemExit("DEEPSEEK_API_KEY is required to load project settings") from None

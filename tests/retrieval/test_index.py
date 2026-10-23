@@ -69,7 +69,12 @@ def test_build_collections_embed_embedding_text_and_keep_content_metadata(tmp_pa
     )
 
     catalog_store, knowledge_store = build_collections(
-        Settings(deepseek_api_key="d", openai_api_key="o", chroma_persist_dir=str(tmp_path / "db")),
+        Settings(
+            deepseek_api_key="d",
+            gemini_api_key="g",
+            chroma_persist_dir=str(tmp_path / "db"),
+            _env_file=None,
+        ),
         embeddings=FakeEmbeddings(),
         catalog_path=catalog,
         chunks_path=chunks,
@@ -105,7 +110,10 @@ def test_rebuilding_replaces_only_the_two_owned_collections(tmp_path: Path):
     )
     _write_jsonl(chunks, [])
     settings = Settings(
-        deepseek_api_key="d", openai_api_key="o", chroma_persist_dir=str(tmp_path / "db")
+        deepseek_api_key="d",
+        gemini_api_key="g",
+        chroma_persist_dir=str(tmp_path / "db"),
+        _env_file=None,
     )
     first_catalog, _ = build_collections(
         settings, embeddings=FakeEmbeddings(), catalog_path=catalog, chunks_path=chunks

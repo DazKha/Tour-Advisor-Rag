@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
 from vietravel_rag.config import Settings
@@ -64,7 +65,10 @@ def catalog_store(tmp_path: Path):
     )
     chunks.write_text("", encoding="utf-8")
     settings = Settings(
-        deepseek_api_key="d", openai_api_key="o", chroma_persist_dir=str(tmp_path / "db")
+        deepseek_api_key="d",
+        gemini_api_key="g",
+        chroma_persist_dir=str(tmp_path / "db"),
+        _env_file=None,
     )
     return build_collections(
         settings, embeddings=FakeEmbeddings(), catalog_path=catalog, chunks_path=chunks
@@ -89,6 +93,24 @@ def test_broad_region_query_returns_candidates_for_clarification(catalog_store):
 
 def test_unsupported_japan_query_is_not_found(catalog_store):
     assert resolve_tours("tour Nhật Bản", catalog_store, limit=3) == []
+
+
+def test_below_floor_runner_up_still_prevents_near_tie_auto_resolution():
+    top = Document("top match", metadata={"tour_code": "tour-a", "document_type": "tour_summary"})
+    runner_up = Document(
+        "runner-up", metadata={"tour_code": "tour-b", "document_type": "tour_summary"}
+    )
+
+    class RankedStore:
+        relevance_floor = 0.65
+        relevance_margin = 0.10
+
+        def similarity_search_with_relevance_scores(self, query, *, k, filter):
+            return [(top, 0.66), (runner_up, 0.60)]
+
+    matches = resolve_tours("ambiguous tour", RankedStore())
+
+    assert [doc.metadata["tour_code"] for doc in matches] == ["tour-a", "tour-b"]
 
 
 def test_full_itinerary_uses_exact_lookup(catalog_store):
