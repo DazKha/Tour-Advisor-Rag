@@ -1,7 +1,7 @@
 # Task 6 Report: Streamlit Multi-Turn Demo
 
 **Date:** 2026-10-23
-**Status:** Implemented and locally verified; no external model requests were made.
+**Status:** Implemented and locally verified; provider integration smoke completed with clarification-only scenario outcomes.
 
 ## Delivered
 
@@ -19,7 +19,7 @@
 - `.venv/bin/ruff check app.py tests/test_app_helpers.py` — passed.
 - `git diff --check` — passed.
 - Headless Streamlit started on port 8765; `/_stcore/health` returned `ok`, and `/` returned the Streamlit page.
-- No provider prompts were sent. The five scenarios below are a demo script only; their live outcomes remain unverified because exercising them would call external model services.
+- During initial UI verification, no provider prompts were sent; the five prompts below were documented for later smoke testing.
 
 ## Review Fix Round 1: Multi-Turn History
 
@@ -30,9 +30,26 @@
 - Removed the redundant UI `last_citation_ids` state; citation continuity remains owned by the LangGraph checkpoint.
 - Focused helper suite — 5 passed. Full suite — 142 passed, with the same 7 existing PyMuPDF/SWIG deprecation warnings.
 - Changed-file Ruff and `git diff --check` passed. Headless Streamlit restarted and `/_stcore/health` returned `ok`.
-- Live provider-backed scenarios remain unrun pending parent decision; no provider API calls were made.
+- At the end of this review round, live provider-backed scenarios remained unrun; the following review round records their eventual sanitized outcomes.
 
-## Five-Scenario Demo Script (Not Executed)
+## Review Fix Round 2: DeepSeek JSON Mode
+
+- RED: a production-like fake requiring `method="json_mode"`, the word `json`, and the exact JSON schema in the prompt rejected the graph's default structured-output call before query analysis.
+- Root cause evidence supplied by the provider smoke: plain `deepseek-flash` invocation works, while the default `json_schema` format and function-calling mode are rejected by the configured API. JSON mode is supported when the system prompt includes JSON and the exact schema contract.
+- GREEN: added one `deepseek_json_output()` adapter used by query analysis, evidence assessment, and answer generation. It selects JSON mode when supported, embeds the compact Pydantic JSON schema (including enum values), and retains legacy injected fakes whose method accepts only `schema`.
+- The graph-level regression exercises all three schemas and rejects either missing JSON mode or missing prompt/schema constraints. Existing injected fake graph tests continue to pass.
+- Focused provider-adapter/graph tests — 23 passed. Full suite — 143 passed, with 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` passed.
+- Sanitized real provider smoke: standalone structured query analysis passed with `intent=itinerary`.
+- Five graph scenarios completed without provider exceptions, but none reached an answer/citation outcome. Exact sanitized results:
+  1. Price: `status=clarification_needed`, `intent=price`, tour codes `thailand-bangkok-pattaya`, `danang-central-5d4n`, no citation IDs.
+  2. Child-price follow-up in the same session: `status=clarification_needed`, `intent=child_price`, same tour codes, no citation IDs.
+  3. Ambiguous-tour itinerary: `status=clarification_needed`, `intent=itinerary`, tour codes `danang-central-5d4n`, `mekong-my-tho-ben-tre-can-tho`, no citation IDs.
+  4. Đà Nẵng baggage: `status=clarification_needed`, `intent=baggage`, tour codes `danang-central-5d4n`, `thailand-bangkok-pattaya`, no citation IDs.
+  5. Availability: `status=clarification_needed`, `intent=availability`, tour codes `thailand-bangkok-pattaya`, `mekong-my-tho-ben-tre-can-tho`, no citation IDs.
+- The scenario outcomes are not marked successful and no cause is inferred here. No response text, credentials, or raw provider errors were recorded.
+
+## Five-Scenario Demo Prompts
 
 1. Normal factual answer with citations: `Giá tour Bangkok – Pattaya bao nhiêu?`
 2. Multi-turn follow-up inheriting the active tour: `Giá trẻ em của tour đó như thế nào?`

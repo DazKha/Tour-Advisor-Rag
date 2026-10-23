@@ -821,7 +821,9 @@ git commit -m "feat: add Streamlit multi-turn demo"
 - [x] Keep rendered messages in Streamlit session state; reset clears messages and active tours and rotates the thread ID.
 - [x] Remove the unused UI `last_citation_ids` copy; the graph checkpoint remains authoritative for follow-up citation state.
 - [x] Verify with a two-turn real-graph/fake-model regression, reset regression, full test suite, Ruff, diff check, and headless health check.
-- [ ] Run the five provider-backed demo scenarios; deferred pending parent decision because this would call external model APIs.
+- [x] Add a DeepSeek-compatible JSON-mode structured-output adapter and strict regression for query analysis, evidence assessment, and answer generation.
+- [x] Run a sanitized live query-analysis smoke and five graph scenarios after the query-analysis call passed.
+- [ ] Demo acceptance remains incomplete: all five live scenarios returned `clarification_needed` with no citation IDs. Outcomes are recorded in the Task 6 report; the cause is not inferred.
 
 ---
 
