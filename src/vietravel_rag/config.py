@@ -12,5 +12,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     embedding_model: str = "text-embedding-3-small"
     chroma_persist_dir: str = "chroma_db"
+    tour_resolution_relevance_floor: float = 0.65
+    tour_resolution_margin: float = 0.3
 
-    model_config = SettingsConfigDict(env_file=None, extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
