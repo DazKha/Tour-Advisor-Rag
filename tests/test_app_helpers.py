@@ -30,6 +30,38 @@ def test_citation_label_shows_a_page_range():
     ) == "Bangkok – Pattaya · Lịch trình · Trang 5–6"
 
 
+def test_response_status_label_maps_known_statuses_for_display():
+    assert app.response_status_label("answered") == "Đã trả lời"
+    assert app.response_status_label("clarification_needed") == "Cần làm rõ"
+    assert app.response_status_label("conflict") == "Có thông tin chưa thống nhất"
+    assert app.response_status_label("unsupported") == "Chưa có đủ thông tin"
+    assert app.response_status_label("escalate") == "Cần nhân viên Vietravel hỗ trợ"
+
+
+def test_response_status_label_uses_safe_fallback_for_unknown_status():
+    assert app.response_status_label("unexpected") == "Không xác định"
+
+
+def test_format_response_markdown_converts_line_leading_bullets_and_adds_spacing():
+    content = "Các điểm chính:\n• Ngày 1: Tham quan.\n• Ngày 2: Nghỉ ngơi."
+
+    assert app.format_response_markdown(content) == (
+        "Các điểm chính:\n\n- Ngày 1: Tham quan.\n- Ngày 2: Nghỉ ngơi."
+    )
+
+
+def test_format_response_markdown_preserves_existing_markdown():
+    content = "Các điểm chính:\n\n- Ngày 1: Tham quan.\n- Ngày 2: Nghỉ ngơi."
+
+    assert app.format_response_markdown(content) == content
+
+
+def test_format_response_markdown_keeps_embedded_bullet_in_prose():
+    content = "Lưu ý • vui lòng xác nhận trước ngày khởi hành."
+
+    assert app.format_response_markdown(content) == content
+
+
 def test_session_config_reuses_the_same_graph_thread_id():
     first = build_session_config("session-abc")
     second = build_session_config("session-abc")

@@ -120,6 +120,38 @@ def render_citation_label(metadata: dict[str, Any]) -> str:
     return f"{tour_name} · {section} · {page}"
 
 
+def response_status_label(status: str) -> str:
+    """Translate internal response statuses into concise, display-only Vietnamese labels."""
+    labels = {
+        "answered": "Đã trả lời",
+        "clarification_needed": "Cần làm rõ",
+        "conflict": "Có thông tin chưa thống nhất",
+        "unsupported": "Chưa có đủ thông tin",
+        "escalate": "Cần nhân viên Vietravel hỗ trợ",
+    }
+    return labels.get(status, "Không xác định")
+
+
+def format_response_markdown(content: str) -> str:
+    """Convert only line-leading Unicode bullets into spaced CommonMark list items."""
+    if "•" not in content:
+        return content
+
+    lines = content.split("\n")
+    first_bullet_index = None
+    for index, line in enumerate(lines):
+        leading = line[: len(line) - len(line.lstrip(" \t"))]
+        remainder = line[len(leading) :]
+        if remainder.startswith("•"):
+            if first_bullet_index is None:
+                first_bullet_index = index
+            lines[index] = f"{leading}- {remainder[1:].lstrip()}"
+
+    if first_bullet_index and lines[first_bullet_index - 1].strip():
+        lines.insert(first_bullet_index, "")
+    return "\n".join(lines)
+
+
 def build_session_config(session_id: str) -> dict[str, dict[str, str]]:
     """Build the stable LangGraph checkpoint config for one browser session."""
     return {"configurable": {"thread_id": session_id}}
@@ -215,8 +247,10 @@ def _safe_source(doc: Any) -> dict[str, Any]:
 def _render_message(message: dict[str, Any]) -> None:
     with st.chat_message(message["role"]):
         if message["role"] == "assistant":
-            st.caption(f"Trạng thái: {message.get('status', 'answered')}")
-        st.markdown(message["content"])
+            st.caption(f"Trạng thái: {response_status_label(message.get('status', 'answered'))}")
+            st.markdown(format_response_markdown(message["content"]))
+        else:
+            st.markdown(message["content"])
         for index, source in enumerate(message.get("sources", [])):
             metadata = source["metadata"]
             with st.expander(render_citation_label(metadata)):
