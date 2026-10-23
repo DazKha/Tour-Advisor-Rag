@@ -446,9 +446,11 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
         if item.get("intent") == analysis.intent
     ]
     context = (
-        f"Intent: {analysis.intent}\nCâu hỏi: {analysis.standalone_query}\n"
-        f"Trạng thái bằng chứng: {status}\nHướng dẫn giao tiếp (không phải dữ kiện): {guidance}\n"
-        f"Bằng chứng đã duyệt:\n{evidence}"
+        f"Câu hỏi cần trả lời: {analysis.standalone_query}\n"
+        f"Intent: {analysis.intent}\n"
+        f"Trạng thái bằng chứng: {status}\n"
+        f"Bằng chứng theo thứ tự liên quan:\n{evidence}\n"
+        f"Hướng dẫn giao tiếp, không phải dữ kiện: {guidance}"
     )
     try:
         answer, attempts = invoke_deepseek_json(

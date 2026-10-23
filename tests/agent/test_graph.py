@@ -136,6 +136,40 @@ def test_answer_prompt_receives_only_guidance_for_current_intent():
     assert "Escalate to staff" not in prompt
 
 
+def test_generation_receives_ranked_evidence_after_question_and_returns_relevant_citation():
+    child = make_chunk(
+        "child-price",
+        "Trẻ từ 2 đến dưới 12 tuổi tính 90% giá người lớn",
+        section="child_price",
+    )
+    cancellation = make_chunk(
+        "cancellation", "Hủy trước 20 ngày không mất phí", section="cancellation_standard"
+    )
+    model = FakeModel([
+        QueryAnalysis(
+            intent="child_price",
+            tour_references=[],
+            standalone_query="Trẻ 8 tuổi tính giá thế nào?",
+        ),
+        TourAnswer(
+            status="answered",
+            answer="Trẻ từ 2 đến dưới 12 tuổi tính 90% giá người lớn.",
+            citation_ids=["child-price"],
+            conflicts=[],
+        ),
+    ])
+
+    result = invoke(model, None, None, None, [child, cancellation])
+    generation_context = model.messages[1][1].content
+
+    assert generation_context.index("Câu hỏi cần trả lời") < generation_context.index(
+        "Bằng chứng theo thứ tự liên quan"
+    )
+    assert "chunk_id=child-price" in generation_context
+    assert "chunk_id=cancellation" in generation_context
+    assert result["response"]["citation_ids"] == ["child-price"]
+
+
 def test_graph_rewrites_child_price_follow_up_using_active_tour():
     child = make_chunk("child-1", "Từ 5 đến dưới 12 tuổi: 75% giá tour người lớn", section="child_price")
     model = FakeModel(

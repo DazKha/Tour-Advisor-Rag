@@ -94,6 +94,15 @@ def test_answer_prompt_limits_itinerary_caveats_to_supported_evidence():
     )
 
 
+def test_answer_prompt_requires_question_focused_grounded_output():
+    prompt = ANSWER_GENERATION_SYSTEM_PROMPT
+    assert "Use only evidence needed to answer the user's exact question" in prompt
+    assert "Do not summarize unrelated retrieved chunks" in prompt
+    assert "Every factual claim and number must be supported" in prompt
+    assert "Prefer one short paragraph" in prompt
+    assert "Cite every chunk used for the answer" in prompt
+
+
 def test_conflict_few_shot_pairs_illustrative_evidence_and_uses_natural_wording():
     match = re.search(
         r'Conflict answer: Evidence: “(?P<evidence>.*?)” User question: '
