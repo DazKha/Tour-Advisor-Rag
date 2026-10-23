@@ -10,7 +10,7 @@ import streamlit as st
 from langchain_chroma import Chroma
 from pydantic import ValidationError
 
-from vietravel_rag.agent.graph import build_graph
+from vietravel_rag.agent.graph import build_graph, invoke_turn
 from vietravel_rag.config import Settings
 from vietravel_rag.llm import get_chat_model, get_embeddings
 from vietravel_rag.retrieval.index import CATALOG_COLLECTION, KNOWLEDGE_COLLECTION
@@ -40,6 +40,13 @@ def render_citation_label(metadata: dict[str, Any]) -> str:
 def build_session_config(session_id: str) -> dict[str, dict[str, str]]:
     """Build the stable LangGraph checkpoint config for one browser session."""
     return {"configurable": {"thread_id": session_id}}
+
+
+def reset_conversation(session_state) -> None:
+    """Clear visible conversation state and isolate the next turn in a fresh graph thread."""
+    session_state.messages = []
+    session_state.active_tour_codes = []
+    session_state.session_id = str(uuid.uuid4())
 
 
 class _TourRetriever:
@@ -157,7 +164,6 @@ def _init_state() -> None:
     defaults = {
         "messages": [],
         "active_tour_codes": [],
-        "last_citation_ids": [],
         "session_id": str(uuid.uuid4()),
     }
     for key, value in defaults.items():
@@ -167,9 +173,7 @@ def _init_state() -> None:
 
 def _run_turn(graph, prompt: str) -> None:
     st.session_state.messages.append({"role": "user", "content": prompt, "sources": []})
-    state = graph.invoke(
-        {"messages": [prompt]}, build_session_config(st.session_state.session_id)
-    )
+    state = invoke_turn(graph, prompt, st.session_state.session_id)
     response = state.get("response") or {}
     cited = set(response.get("citation_ids", []))
     docs = state.get("retrieved_chunks", [])
@@ -179,7 +183,6 @@ def _run_turn(graph, prompt: str) -> None:
         if (getattr(doc, "metadata", {}) or {}).get("chunk_id") in cited
     ]
     st.session_state.active_tour_codes = list(state.get("active_tour_codes", []))
-    st.session_state.last_citation_ids = list(response.get("citation_ids", []))
     st.session_state.messages.append(
         {
             "role": "assistant",
@@ -198,10 +201,7 @@ def main() -> None:
     st.info("Tình trạng chỗ và việc đặt tour cần nhân viên Vietravel xác nhận.")
 
     if st.button("Làm mới cuộc trò chuyện"):
-        st.session_state.messages = []
-        st.session_state.active_tour_codes = []
-        st.session_state.last_citation_ids = []
-        st.session_state.session_id = str(uuid.uuid4())
+        reset_conversation(st.session_state)
         st.rerun()
 
     suggestions = [
