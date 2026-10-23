@@ -11,3 +11,4 @@ Task 2: minor (deferred): PyMuPDF/SWIG emits seven deprecation warnings under Py
 Task 2: complete (commits 75ec456..0d636b5, review clean)
 Task 3: fix round 1/5 (resolver near-tie separation and Gemini Embedding 1 migration; 2 addressed, 0 open; 768-dimensional normalized vectors; index counts 8/84 and Bà Nà smoke passed; implementation commit 965b4d5)
 Task 4: fix round 1/5 (1 addressed, 0 open — declared resolver output state channels for LangGraph; regression confirms node output fields are in AgentState; project .venv full suite 62 passed; implementation commit 3791f5c)
+Task 5: complete (guardrails, evidence assessment, answer generation, LangGraph checkpointer and end-to-end tests; full suite 92 passed; changed-file Ruff and diff check passed; full-repository Ruff has 13 findings in untouched prior files; no API keys read; implementation commit recorded separately)

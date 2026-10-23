@@ -654,7 +654,7 @@ git commit -m "feat: add multi-turn query routing"
 - Consumes: retrieved chunks, `conflicts.json`, sales guidance, `EvidenceAssessment`, and `TourAnswer`.
 - Produces: `build_graph(deps) -> CompiledStateGraph`, `validate_input(text)`, `assess_evidence(state, model)`, `generate_answer(state, model)`, and `validate_answer(answer, approved_chunks)`.
 
-- [ ] **Step 1: Write failing guardrail tests**
+- [x] **Step 1: Write failing guardrail tests**
 
 Cover these exact outcomes:
 
@@ -677,12 +677,12 @@ def test_known_baggage_conflict_routes_to_conflict():
 
 Also test refusal to expose bank details, guarantee visa approval, claim live availability, give medical advice, or claim a cancellation was executed.
 
-- [ ] **Step 2: Run guardrail tests and verify failure**
+- [x] **Step 2: Run guardrail tests and verify failure**
 
 Run: `python -m pytest tests/guardrails -v`<br>
 Expected: import errors or failed assertions.
 
-- [ ] **Step 3: Implement input and conflict guards**
+- [x] **Step 3: Implement input and conflict guards**
 
 Input guard rules:
 
@@ -693,7 +693,7 @@ Input guard rules:
 
 Conflict guard loads `conflicts.json` once and matches exact `tour_code + intent/topic`. The baggage record bypasses free-form evidence selection and forces the two stored claim chunks into approved evidence.
 
-- [ ] **Step 4: Implement evidence-assessment prompt**
+- [x] **Step 4: Implement evidence-assessment prompt**
 
 Use structured output `EvidenceAssessment`. Require the model to select only chunk IDs supplied in the prompt. Explicitly distinguish:
 
@@ -703,11 +703,11 @@ Use structured output `EvidenceAssessment`. Require the model to select only chu
 - `realtime_required`: availability, current price/promotion, live weather, or current external rule;
 - `high_risk`: medical, immigration, payment, cancellation execution, or complaint requiring staff.
 
-- [ ] **Step 5: Implement answer-generation prompt**
+- [x] **Step 5: Implement answer-generation prompt**
 
 The prompt receives approved chunks, optional tour summary/full itinerary, relevant sales guidance, and evidence status. Require concise Vietnamese, no unsupported facts, one useful follow-up question at most, and structured `TourAnswer` output. Conflict answers must state both source claims and recommend confirming with Vietravel.
 
-- [ ] **Step 6: Implement deterministic output validation**
+- [x] **Step 6: Implement deterministic output validation**
 
 Validation sequence:
 
@@ -719,7 +719,7 @@ Validation sequence:
 
 Do not make a second generation call after validation failure.
 
-- [ ] **Step 7: Wire the LangGraph**
+- [x] **Step 7: Wire the LangGraph**
 
 Create nodes in this order:
 
@@ -732,7 +732,7 @@ evidence_assessment -> response_generation -> output_guard -> END
 
 Use a per-Streamlit-session in-memory checkpointer keyed by session ID. Cap prompt history at the most recent 10 messages.
 
-- [ ] **Step 8: Add end-to-end graph tests**
+- [x] **Step 8: Add end-to-end graph tests**
 
 With fake LLM and fake stores, cover:
 
@@ -743,7 +743,7 @@ With fake LLM and fake stores, cover:
 - live availability request routed to `realtime_required`;
 - prompt injection routed to safe refusal.
 
-- [ ] **Step 9: Run tests and commit**
+- [x] **Step 9: Run tests and commit**
 
 Run: `python -m pytest tests/guardrails tests/agent/test_graph.py -v`<br>
 Expected: all tests pass.
