@@ -570,7 +570,7 @@ git commit -m "feat: add scoped Chroma retrieval"
 - Consumes: `QueryAnalysis`, `AgentState`, `resolve_tours()`, `retrieve_evidence()`, and `get_full_itinerary()`.
 - Produces: `analyze_query(state, model)`, `resolve_tour_node(state, resolver)`, and `retrieve_node(state, retriever)`.
 
-- [ ] **Step 1: Write failing structured-output tests**
+- [x] **Step 1: Write failing structured-output tests**
 
 Use a fake structured model and assert:
 
@@ -590,12 +590,12 @@ def test_pronoun_with_two_active_tours_requires_clarification():
     assert result["route"] == "clarification"
 ```
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `python -m pytest tests/agent/test_query_analysis.py tests/agent/test_routing.py -v`<br>
 Expected: missing node implementations.
 
-- [ ] **Step 3: Implement the query-understanding prompt**
+- [x] **Step 3: Implement the query-understanding prompt**
 
 The prompt must:
 
@@ -608,7 +608,7 @@ The prompt must:
 
 Call `model.with_structured_output(QueryAnalysis)` and use temperature zero.
 
-- [ ] **Step 4: Implement resolver and retrieval nodes**
+- [x] **Step 4: Implement resolver and retrieval nodes**
 
 Resolver behavior:
 
@@ -625,7 +625,7 @@ Retriever behavior:
 - add exact `full_itinerary` only for `itinerary`, `recommend_tour`, or an explicit complete-program request;
 - for “next/previous day”, add the adjacent itinerary chunk using `last_citation_ids` and `chunk_index`.
 
-- [ ] **Step 5: Run routing tests and commit**
+- [x] **Step 5: Run routing tests and commit**
 
 Run: `python -m pytest tests/agent/test_query_analysis.py tests/agent/test_routing.py -v`<br>
 Expected: all tests pass.
