@@ -14,6 +14,7 @@ from vietravel_rag.agent.prompts import (
     EVIDENCE_ASSESSMENT_SYSTEM_PROMPT,
     QUERY_ANALYSIS_SYSTEM_PROMPT,
 )
+from vietravel_rag.agent.structured_output import deepseek_json_output
 from vietravel_rag.guardrails.input_guard import validate_input
 from vietravel_rag.guardrails.output_guard import validate_answer
 from vietravel_rag.models import AgentState, EvidenceAssessment, QueryAnalysis, TourAnswer
@@ -91,9 +92,11 @@ def analyze_query(state: AgentState, model) -> dict[str, Any]:
         f"Tên các tour tương ứng: {active}\n"
         "Phân tích tin nhắn cuối cùng; dùng các tin trước chỉ để giải quyết câu tiếp nối."
     )
-    structured_model = model.with_structured_output(QueryAnalysis)
+    structured_model, output_prompt = deepseek_json_output(
+        model, QueryAnalysis, QUERY_ANALYSIS_SYSTEM_PROMPT
+    )
     analysis = structured_model.invoke(
-        [SystemMessage(content=f"{QUERY_ANALYSIS_SYSTEM_PROMPT}\n\n{context}"), *messages]
+        [SystemMessage(content=f"{output_prompt}\n\n{context}"), *messages]
     )
     if not isinstance(analysis, QueryAnalysis):
         analysis = QueryAnalysis.model_validate(analysis)
@@ -399,10 +402,12 @@ def assess_evidence(state: AgentState, model) -> dict[str, Any]:
         f"chunk_id={doc.metadata.get('chunk_id')}\n{doc.metadata.get('content', doc.page_content)}"
         for doc in chunks
     )
-    structured = model.with_structured_output(EvidenceAssessment)
+    structured, output_prompt = deepseek_json_output(
+        model, EvidenceAssessment, EVIDENCE_ASSESSMENT_SYSTEM_PROMPT
+    )
     raw = structured.invoke(
         [
-            SystemMessage(content=EVIDENCE_ASSESSMENT_SYSTEM_PROMPT),
+            SystemMessage(content=output_prompt),
             SystemMessage(content=f"Câu hỏi: {analysis.standalone_query}\nIntent: {analysis.intent}\nBằng chứng:\n{prompt_data}"),
         ]
     )
@@ -464,9 +469,11 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
         f"Bằng chứng đã duyệt:\n{evidence}"
     )
     try:
-        structured = model.with_structured_output(TourAnswer)
+        structured, output_prompt = deepseek_json_output(
+            model, TourAnswer, ANSWER_GENERATION_SYSTEM_PROMPT
+        )
         raw = structured.invoke(
-            [SystemMessage(content=ANSWER_GENERATION_SYSTEM_PROMPT), SystemMessage(content=context)]
+            [SystemMessage(content=output_prompt), SystemMessage(content=context)]
         )
         answer = raw if isinstance(raw, TourAnswer) else TourAnswer.model_validate(raw)
     except Exception:  # noqa: BLE001 - provider failures must become a safe, non-retried response
