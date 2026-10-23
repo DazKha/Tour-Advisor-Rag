@@ -46,3 +46,13 @@
 - `.venv/bin/pytest -q` — 112 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
 - Changed-file Ruff and `git diff --check` — passed.
 - No secret values or source-input directories were accessed.
+
+## Review Fix Round 3
+
+- RED: reproduced two qualifier-loss bypasses: `under 12` evidence accepted an unqualified `12`, and a `from 5 to below 12` age range accepted a weakened inclusive upper bound.
+- GREEN: numeric facts now carry comparison operators. Scalar and range extraction normalize strict `<`/`>` aliases (`dưới`/`under`/`below`, `trên`/`over`/`above`) and inclusive `>=`/`<=` aliases (`từ`/`from`, `ít nhất`/`at least`, `đến`/`to`, `tối đa`/`at most`, `up to`). Range facts preserve comparator semantics independently for each endpoint.
+- Added regressions for strict-bound loss, synonym equivalence, inclusive min/max, strict greater-than, and changing a strict range limit to an inclusive one.
+- `.venv/bin/pytest -q tests/guardrails/test_output_guard.py` — 31 passed.
+- `.venv/bin/pytest -q` — 119 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` — passed; ordinary date, range, and currency regressions remain green.
+- No secret values or source-input directories were accessed.
