@@ -1,7 +1,7 @@
 # Task 4 Report: Query Understanding and Multi-Turn Routing
 
 **Date:** 2026-10-23  
-**Status:** Implemented; implementation and report are committed separately.
+**Status:** Implemented and integrated with the Task 5 LangGraph state contract.
 
 ## Delivered
 
@@ -14,11 +14,19 @@
 ## Evidence
 
 - RED: the focused tests initially failed to collect because `vietravel_rag.agent` did not exist.
-- GREEN: `python -m pytest tests/agent/test_query_analysis.py tests/agent/test_routing.py -v` — 11 passed.
-- Ruff: `ruff check src/vietravel_rag/agent tests/agent` — passed.
+- GREEN: `.venv/bin/python -m pytest tests/agent/test_query_analysis.py tests/agent/test_routing.py -q` — 12 passed, including the state-channel regression.
+- Ruff: `ruff check src tests` — passed.
 - Whitespace: `git diff --check` — passed.
-- Full suite attempt: `python -m pytest` could not collect four existing retrieval/model test modules because the environment lacks the declared `langchain-google-genai` dependency. No API keys or `.env` values were read.
+- Full suite: `.venv/bin/python -m pytest -q` — 62 passed, with 7 PyMuPDF/SWIG deprecation warnings.
+- Environment note: the system Python full-suite attempt could not collect four retrieval/model modules because that interpreter lacks the declared `langchain-google-genai` dependency; the project `.venv` run above is complete.
+- No API keys or `.env` values were read.
+
+## State-contract integration fix
+
+The routing node emits `route`, `tour_candidates`, and `tour_summaries`. These are now declared in `AgentState`; the document-bearing fields use `list[Document]`, and `retrieved_chunks` is typed consistently with node output. The regression test confirms every resolver-node output key belongs to the TypedDict state schema. This environment did not have `langgraph` installed, so the regression checks the state annotation contract directly rather than compiling a `StateGraph`.
+
+Fix implementation commit: `3791f5cc6343372f63d4a4dc807d196b63206385`.
 
 ## Scope notes
 
-The repository had no separate progress ledger; the Task 4 checklist in the implementation plan was updated. `raw_data/` and `reference/` were left untouched.
+The Task 4 checklist in the implementation plan and the SDD progress ledger were updated. `raw_data/` and `reference/` were left untouched.
