@@ -16,7 +16,7 @@ def test_unknown_citation_is_rejected():
     result = validate_answer(answer("A possibly invented claim.", ["invented"]), [chunk("real")])
 
     assert result.status == "unsupported"
-    assert result.answer == "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+    assert result.answer == "Dạ, em chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời. Anh/chị vui lòng cho em biết thêm thông tin ạ."
     assert result.citation_ids == []
 
 
@@ -24,7 +24,7 @@ def test_answered_response_without_citations_is_rejected():
     result = validate_answer(answer("A possibly invented claim."), [chunk("real")])
 
     assert result.status == "unsupported"
-    assert result.answer == "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+    assert result.answer == "Dạ, em chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời. Anh/chị vui lòng cho em biết thêm thông tin ạ."
     assert result.citation_ids == []
 
 
@@ -55,3 +55,12 @@ def test_each_prohibited_claim_category_escalates():
         result = validate_answer(answer(claim, ["known"]), [chunk("known")])
         assert result.status == "escalate", claim
         assert "123456" not in result.answer
+        assert result.answer.startswith("Dạ,")
+
+
+def test_invalid_citation_fallback_uses_polite_consultant_tone():
+    result = validate_answer(answer("Nội dung không có căn cứ.", ["unknown"]), [chunk("known")])
+
+    assert result.status == "unsupported"
+    assert result.answer.startswith("Dạ,")
+    assert "anh/chị" in result.answer.casefold()

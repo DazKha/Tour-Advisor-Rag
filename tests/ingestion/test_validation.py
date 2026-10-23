@@ -26,6 +26,10 @@ def corpus():
             {"text": "Hành lý ký gửi 23kg, xách tay 10kg/khách", "page": 3, "chunk_id": "danang-central-5d4n_included_01"},
             {"text": "xách tay dưới 7kg/1khách", "page": 4, "chunk_id": "danang-central-5d4n_registration_notes_01"},
         ],
+        "customer_summary": (
+            "• Hành lý ký gửi 23kg, xách tay 10kg/khách.\n"
+            "• Hành lý ký gửi 20kg/1 khách, xách tay dưới 7kg/1 khách."
+        ),
         "resolution": "require_human_confirmation",
     }]
     return chunks, catalog, conflict
@@ -123,6 +127,16 @@ def test_validator_rejects_missing_required_baggage_claim(corpus):
     bad[0]["claims"].pop()
     result = validate_corpus(chunks, catalog, [], bad)
     assert any("Required Đà Nẵng baggage conflict" in error for error in result["errors"])
+
+
+def test_validator_rejects_empty_curated_customer_summary(corpus):
+    chunks, catalog, conflicts = corpus
+    bad = json.loads(json.dumps(conflicts, ensure_ascii=False))
+    bad[0]["customer_summary"] = "  "
+
+    result = validate_corpus(chunks, catalog, [], bad)
+
+    assert any("customer summary" in error.casefold() for error in result["errors"])
 
 
 def test_validator_rejects_changed_required_claim_text_even_if_page_contains_it(corpus):

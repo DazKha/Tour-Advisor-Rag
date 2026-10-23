@@ -367,6 +367,7 @@ def conflict_guard(state: AgentState, conflicts: list[dict]) -> dict[str, Any]:
                 "approved_chunk_ids": [str(doc.metadata["chunk_id"]) for doc in chosen],
                 "approved_chunks": chosen,
                 "conflict_description": str(record.get("topic", "Mâu thuẫn trong tài liệu")),
+                "conflict_customer_summary": record.get("customer_summary"),
             }
     return {"evidence_status": None}
 
@@ -429,21 +430,21 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
     if status == "realtime_required":
         answer = TourAnswer(
             status="escalate",
-            answer="Mình không thể kiểm tra chỗ trống hoặc giá hiện hành theo thời gian thực. Vui lòng liên hệ Vietravel để được xác nhận.",
+            answer="Dạ, em chưa thể kiểm tra chỗ trống hoặc giá hiện hành theo thời gian thực. Anh/chị vui lòng liên hệ Vietravel để được xác nhận ạ.",
             citation_ids=[], conflicts=[],
         )
         return {"response": answer.model_dump()}
     if status == "high_risk":
         answer = TourAnswer(
             status="escalate",
-            answer="Yêu cầu này cần nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp. Mình không thể xác nhận hay thực hiện thay.",
+            answer="Dạ, yêu cầu này cần nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp. Em chưa thể xác nhận hay thực hiện thay ạ.",
             citation_ids=[], conflicts=[],
         )
         return {"response": answer.model_dump()}
     if status == "insufficient":
         answer = TourAnswer(
             status="unsupported",
-            answer="Mình chưa tìm thấy đủ căn cứ trong tài liệu tour để trả lời chính xác.",
+            answer="Dạ, em chưa tìm thấy đủ căn cứ trong tài liệu tour để trả lời chính xác ạ.",
             citation_ids=[], conflicts=[],
         )
         return {"response": answer.model_dump()}
@@ -475,7 +476,7 @@ def generate_answer(state: AgentState, model) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 - provider failures must become a safe, non-retried response
         answer = TourAnswer(
             status="unsupported",
-            answer="Mình chưa thể tạo câu trả lời có căn cứ từ tài liệu tour.",
+            answer="Dạ, em chưa thể tạo câu trả lời có căn cứ từ tài liệu tour ạ.",
             citation_ids=[], conflicts=[],
         )
     return {"draft_response": answer.model_dump()}
@@ -486,14 +487,23 @@ def output_guard_node(state: AgentState) -> dict[str, Any]:
     answer = draft if isinstance(draft, TourAnswer) else TourAnswer.model_validate(draft)
     approved = list(state.get("approved_chunks", []))
     if state.get("evidence_status") == "conflict" and len(approved) >= 2:
-        claims = [str(doc.metadata.get("content") or doc.page_content).strip() for doc in approved[:2]]
         ids = [str(doc.metadata["chunk_id"]) for doc in approved[:2]]
+        summary = state.get("conflict_customer_summary")
+        if isinstance(summary, str) and summary.strip():
+            answer_text = (
+                "Dạ, tài liệu tour hiện có hai thông tin chưa thống nhất về hành lý:\n\n"
+                f"{summary.strip()}\n\n"
+                "Để tránh ảnh hưởng khi làm thủ tục tại sân bay, anh/chị vui lòng xác nhận lại "
+                "hạn mức áp dụng với Vietravel trước ngày khởi hành ạ."
+            )
+        else:
+            answer_text = (
+                "Dạ, thông tin hành lý trong tài liệu tour chưa thống nhất. Anh/chị vui lòng "
+                "xác nhận lại hạn mức áp dụng với Vietravel trước ngày khởi hành ạ."
+            )
         answer = TourAnswer(
             status="conflict",
-            answer=(
-                f"Tài liệu ghi hai nội dung khác nhau: “{claims[0]}” và “{claims[1]}”. "
-                "Vui lòng xác nhận thông tin này với Vietravel."
-            ),
+            answer=answer_text,
             citation_ids=ids,
             conflicts=["Nguồn tài liệu có nội dung mâu thuẫn."],
         )
@@ -511,26 +521,26 @@ def direct_response_node(state: AgentState) -> dict[str, Any]:
     if route == "clarification":
         response = TourAnswer(
             status="clarification_needed",
-            answer="Bạn muốn hỏi về tour nào? Vui lòng cho mình biết tên tour hoặc điểm đến.",
+            answer="Dạ, anh/chị muốn hỏi về tour nào ạ? Vui lòng cho em biết tên tour hoặc điểm đến nhé.",
             citation_ids=[], conflicts=[],
         )
     elif route == "safe_response":
         response = TourAnswer(
-            status="escalate", answer="Mình chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu.",
+            status="escalate", answer="Dạ, em chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu ạ.",
             citation_ids=[], conflicts=[],
         )
     elif route == "general":
         response = TourAnswer(
             status="answered",
             answer=(
-                "Mình có thể hỗ trợ thông tin trong tài liệu về giá, lịch trình, dịch vụ bao gồm "
-                "hoặc không bao gồm, hành lý, thanh toán và chính sách tour."
+                "Dạ, em có thể hỗ trợ thông tin trong tài liệu về giá, lịch trình, dịch vụ bao gồm "
+                "hoặc không bao gồm, hành lý, thanh toán và chính sách tour ạ."
             ),
             citation_ids=[], conflicts=[],
         )
     else:
         response = TourAnswer(
-            status="unsupported", answer="Mình chưa tìm thấy tour phù hợp trong dữ liệu hiện có.",
+            status="unsupported", answer="Dạ, em chưa tìm thấy tour phù hợp trong dữ liệu hiện có ạ.",
             citation_ids=[], conflicts=[],
         )
     return {"response": response.model_dump()}

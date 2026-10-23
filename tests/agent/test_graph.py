@@ -62,6 +62,10 @@ def invoke(model, analysis, evidence, answer, chunks, *, resolver=None, state=No
                         {"chunk_id": "bag-10", "text": "xách tay 10kg/khách", "page": 3},
                         {"chunk_id": "bag-7", "text": "xách tay dưới 7kg/1khách", "page": 4},
                     ],
+                    "customer_summary": (
+                        "• Hành lý ký gửi 23kg, xách tay 10kg/khách.\n"
+                        "• Hành lý ký gửi 20kg/1 khách, xách tay dưới 7kg/1 khách."
+                    ),
                     "resolution": "require_human_confirmation",
                 }
             ],
@@ -166,6 +170,7 @@ def test_graph_clarifies_ambiguous_tour_pronoun():
     )
 
     assert result["response"]["status"] == "clarification_needed"
+    assert result["response"]["answer"].startswith("Dạ,")
     assert model.schemas == [QueryAnalysis]
 
 
@@ -183,7 +188,40 @@ def test_graph_forces_both_baggage_claims_when_sources_conflict():
 
     assert result["evidence_status"] == "conflict"
     assert set(result["response"]["citation_ids"]) == {"bag-10", "bag-7"}
-    assert "10kg" in result["response"]["answer"] and "7kg" in result["response"]["answer"]
+    answer = result["response"]["answer"]
+    assert answer.startswith("Dạ,")
+    assert all(term in answer for term in ("23kg", "20kg", "10kg", "7kg"))
+    assert "Vietravel" in answer
+    assert "Căn cước công dân" not in answer and "Giấy khai sinh" not in answer
+    assert model.schemas == [QueryAnalysis]
+
+
+def test_known_conflict_without_curated_summary_fails_closed_without_source_interpolation():
+    bag_one = make_chunk("bag-10", "Hành lý ký gửi 23kg, xách tay 10kg/khách", "danang-central-5d4n")
+    bag_two = make_chunk("bag-7", "xách tay dưới 7kg/1khách", "danang-central-5d4n")
+    model = FakeModel([QueryAnalysis(intent="baggage", tour_references=["Đà Nẵng"], standalone_query="Hành lý Đà Nẵng")])
+    graph = build_graph({
+        "model": model,
+        "resolver": lambda query: [Document("Đà Nẵng", metadata={"tour_code": "danang-central-5d4n", "document_type": "tour_summary"})],
+        "retriever": FakeRetriever([bag_one, bag_two]),
+        "conflicts": [{
+            "tour_code": "danang-central-5d4n", "topic": "baggage",
+            "claims": [
+                {"chunk_id": "bag-10", "text": "Hành lý ký gửi 23kg, xách tay 10kg/khách", "page": 3},
+                {"chunk_id": "bag-7", "text": "xách tay dưới 7kg/1khách", "page": 4},
+            ],
+            "resolution": "require_human_confirmation",
+        }],
+        "sales_guidance": [],
+    })
+
+    result = graph.invoke({"messages": [HumanMessage(content="Hành lý tour Đà Nẵng thế nào?")]}, {"configurable": {"thread_id": "missing-summary"}})
+
+    assert result["response"]["status"] == "conflict"
+    assert set(result["response"]["citation_ids"]) == {"bag-10", "bag-7"}
+    assert result["response"]["answer"].startswith("Dạ,")
+    assert "Vietravel" in result["response"]["answer"]
+    assert "Hành lý ký gửi 23kg" not in result["response"]["answer"]
     assert model.schemas == [QueryAnalysis]
 
 
@@ -218,6 +256,7 @@ def test_graph_routes_live_availability_to_realtime_required():
 
     assert result["evidence_status"] == "realtime_required"
     assert result["response"]["status"] == "escalate"
+    assert result["response"]["answer"].startswith("Dạ,")
 
 
 def test_graph_routes_current_price_to_realtime_required():
@@ -242,6 +281,7 @@ def test_graph_escalates_visa_guarantee_without_generating_answer():
 
     assert result["evidence_status"] == "high_risk"
     assert result["response"]["status"] == "escalate"
+    assert result["response"]["answer"].startswith("Dạ,")
     assert model.schemas == [QueryAnalysis]
 
 
@@ -308,7 +348,19 @@ def test_graph_refuses_prompt_injection_before_query_model():
     )
 
     assert result["response"]["status"] == "escalate"
+    assert result["response"]["answer"].startswith("Dạ,")
     assert model.schemas == []
+
+
+def test_general_and_off_topic_responses_open_politely_without_answer_generation():
+    for intent, expected_status in (("general", "answered"), ("off_topic", "escalate")):
+        model = FakeModel([QueryAnalysis(intent=intent, tour_references=[], standalone_query="")])
+
+        result = invoke(model, None, None, None, [])
+
+        assert result["response"]["status"] == expected_status
+        assert result["response"]["answer"].startswith("Dạ,")
+        assert model.schemas == [QueryAnalysis]
 
 
 def test_graph_caps_conversation_history_at_ten_messages():

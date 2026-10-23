@@ -60,12 +60,18 @@ def _validate_conflicts(chunks: list[ChunkRecord], conflicts: list[dict] | None)
             {"text": "xách tay dưới 7kg/1khách", "page": 4,
              "chunk_id": "danang-central-5d4n_registration_notes_01"},
         ],
+        "customer_summary": (
+            "• Hành lý ký gửi 23kg, xách tay 10kg/khách.\n"
+            "• Hành lý ký gửi 20kg/1 khách, xách tay dưới 7kg/1 khách."
+        ),
         "resolution": "require_human_confirmation",
     }]
     if conflicts != expected_conflicts:
         errors.append("Required Đà Nẵng baggage conflict record does not match the curated claims, pages, IDs, and resolution")
     by_id = {chunk.chunk_id: chunk for chunk in chunks}
     for conflict in conflicts:
+        if not isinstance(conflict.get("customer_summary"), str) or not conflict["customer_summary"].strip():
+            errors.append("Conflict customer summary must be a non-empty string")
         for claim in conflict.get("claims", []):
             chunk = by_id.get(claim.get("chunk_id"))
             page = claim.get("page")

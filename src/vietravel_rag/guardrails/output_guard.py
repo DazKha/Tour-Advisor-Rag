@@ -9,7 +9,7 @@ from langchain_core.documents import Document
 
 from vietravel_rag.models import TourAnswer
 
-_UNSUPPORTED_ANSWER = "Mình chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời."
+_UNSUPPORTED_ANSWER = "Dạ, em chưa tìm thấy căn cứ phù hợp trong tài liệu tour để trả lời. Anh/chị vui lòng cho em biết thêm thông tin ạ."
 
 _PROHIBITED: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b(?:stk|số\s+tài\s+khoản|tài\s+khoản\s+(?:ngân\s+hàng|số)|chuyển\s+khoản\s+vào|bank\s+account)\b", re.IGNORECASE),
@@ -27,7 +27,7 @@ def validate_answer(answer: TourAnswer, approved_chunks: Iterable[Document]) -> 
     if any(pattern.search(answer.answer) for pattern in _PROHIBITED):
         return answer.model_copy(update={
             "status": "escalate",
-            "answer": "Yêu cầu này cần được nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp.",
+            "answer": "Dạ, yêu cầu này cần được nhân viên Vietravel hoặc chuyên gia phù hợp hỗ trợ trực tiếp ạ.",
             "citation_ids": [],
         })
 

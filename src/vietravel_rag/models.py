@@ -95,6 +95,7 @@ class AgentState(TypedDict, total=False):
     input_decision: str | None
     input_message: str | None
     conflict_description: str | None
+    conflict_customer_summary: str | None
     draft_response: dict | None
     sales_guidance: list[dict]
     approved_chunk_ids: list[str]

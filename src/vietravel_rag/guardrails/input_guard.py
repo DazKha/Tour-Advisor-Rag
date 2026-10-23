@@ -30,13 +30,13 @@ _LONG_DIGITS = re.compile(r"(?<!\d)(?:\d[ .-]?){9,}(?!\d)")
 def validate_input(text: str) -> InputDecision:
     """Return a safe route for empty, oversized, or injection-like input."""
     if not text or not text.strip():
-        return InputDecision("clarification", "Bạn muốn hỏi thông tin nào về tour?")
+        return InputDecision("clarification", "Dạ, anh/chị muốn hỏi thông tin nào về tour ạ?")
     if len(text) > 2000:
-        return InputDecision("clarification", "Vui lòng gửi câu hỏi ngắn hơn (tối đa 2.000 ký tự).")
+        return InputDecision("clarification", "Dạ, anh/chị vui lòng gửi câu hỏi ngắn hơn (tối đa 2.000 ký tự) ạ.")
     if _INJECTION.search(text):
         return InputDecision(
             "safe_response",
-            "Mình chỉ có thể hỗ trợ thông tin tour dựa trên tài liệu được cung cấp.",
+            "Dạ, em chỉ có thể hỗ trợ thông tin tour dựa trên tài liệu được cung cấp ạ.",
         )
     return InputDecision("continue")
 
