@@ -35,7 +35,10 @@ _UNIT_TOKEN = re.compile(
 _COMPARATORS = {
     "under": "<", "below": "<", "less than": "<", "fewer than": "<", "dưới": "<", "nhỏ hơn": "<",
     "over": ">", "above": ">", "more than": ">", "greater than": ">", "trên": ">", "lớn hơn": ">",
-    "at least": ">=", "no less than": ">=", "at most": "<=", "no more than": "<=",
+    "at least": ">=", "no less than": ">=", "not less than": ">=", "not under": ">=",
+    "no fewer than": ">=", "not fewer than": ">=",
+    "at most": "<=", "no more than": "<=", "not more than": "<=", "not over": "<=",
+    "no greater than": "<=", "not greater than": "<=",
 }
 _COMPARATOR_TOKEN = re.compile(
     r"(?<!\w)(?:" + "|".join(re.escape(term) for term in sorted(_COMPARATORS, key=len, reverse=True)) + r")(?!\w)",

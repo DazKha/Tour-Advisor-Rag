@@ -121,6 +121,23 @@ def test_numeric_fact_units_do_not_leak_from_a_previous_value():
     assert numeric_grounding_rate([{"answer": "12 million USD and 5 years"}], [["5 years"]]) == 0.5
 
 
+@pytest.mark.parametrize(
+    ("answer", "context", "expected"),
+    [
+        ("not under 12 years", "under 12 years", 0.0),
+        ("not under 12 years", "at least 12 years", 1.0),
+        ("not over 12 years", "over 12 years", 0.0),
+        ("not over 12 years", "at most 12 years", 1.0),
+        ("not less than 12 years", "less than 12 years", 0.0),
+        ("not less than 12 years", "at least 12 years", 1.0),
+        ("not greater than 12 years", "greater than 12 years", 0.0),
+        ("not greater than 12 years", "at most 12 years", 1.0),
+    ],
+)
+def test_numeric_grounding_preserves_negated_comparator_semantics(answer, context, expected):
+    assert numeric_grounding_rate([{"answer": answer}], [[context]]) == expected
+
+
 def test_dataset_has_required_distribution_and_only_real_reference_ids():
     cases = load_cases("data/eval/eval_cases.jsonl")
     chunks = [json.loads(line) for line in Path("data/processed/tour_chunks.jsonl").read_text(encoding="utf-8").splitlines()]
