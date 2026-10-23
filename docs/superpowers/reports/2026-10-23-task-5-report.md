@@ -35,3 +35,14 @@
 - No `.env` values were read or printed. No live APIs were called.
 - `raw_data/` and `reference/` remain untouched.
 - The PII utility is available for any future log path; this graph currently emits no user-input logs.
+
+## Review Fix Round 2
+
+- RED: reproduced two additional unit-category bypasses: evidence `2 phòng` accepted an answer claiming `2 mét`, and evidence `3 chỗ` accepted `3 phòng`.
+- RED: reproduced a range-order bypass: evidence `10-13 ngày` accepted `từ 13 đến 10 ngày` because the earlier implementation compared endpoints independently.
+- GREEN: moved every supported spelling and alias into one canonical unit mapping used to generate both unit-capture and range regexes; normalization now reads the same mapping. Range facts retain ordered, normalized endpoints and accept equivalent shared-unit wording.
+- Added regressions for the two alias swaps, reversed range rejection, and equivalent range wording acceptance.
+- `.venv/bin/pytest -q tests/guardrails/test_output_guard.py` — 24 passed.
+- `.venv/bin/pytest -q` — 112 passed; 7 existing PyMuPDF/SWIG deprecation warnings.
+- Changed-file Ruff and `git diff --check` — passed.
+- No secret values or source-input directories were accessed.
