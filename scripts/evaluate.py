@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from collections import Counter
@@ -290,7 +291,21 @@ def _run_cases(cases: list[dict], chunk_by_id: dict[str, dict], graph) -> list[d
 
 def _write_json(path: Path, value: dict | list) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(_sanitize_json_value(value), ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _sanitize_json_value(value):
+    """Replace non-finite floats recursively so all persisted files are strict JSON."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: _sanitize_json_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_json_value(item) for item in value]
+    return value
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -339,6 +354,12 @@ def main(argv: list[str] | None = None) -> int:
             "timestamp_utc": datetime.now(UTC).isoformat(),
         },
         "limitations": {"judge_model_self_evaluation": True},
+        "metric_definitions": {
+            "citation_validity": (
+                "Fraction of emitted citation IDs that appear among retrieved IDs; this does not "
+                "measure citation coverage or completeness."
+            )
+        },
     }
     ragas_result = None
     if not args.skip_ragas:

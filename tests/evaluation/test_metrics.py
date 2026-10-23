@@ -1,7 +1,10 @@
 import json
+import math
 from pathlib import Path
 
-from scripts.evaluate import load_cases, ragas_records, validate_cases
+import pytest
+
+from scripts.evaluate import _write_json, load_cases, ragas_records, validate_cases
 from vietravel_rag.evaluation.metrics import (
     citation_validity,
     cost_summary,
@@ -125,4 +128,20 @@ def test_ragas_adapter_preserves_context_ids_and_standard_fields():
         "retrieved_context_ids": ["chunk_1"],
         "response": "response",
         "reference": "reference text",
+    }
+
+
+def test_json_writer_recursively_sanitizes_non_finite_ragas_scores(tmp_path):
+    path = tmp_path / "eval_summary.json"
+    _write_json(
+        path,
+        {"ragas": {"score": math.nan, "positive_infinity": math.inf}, "rows": [{"score": -math.inf}]},
+    )
+    loaded = json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=lambda value: pytest.fail(f"invalid JSON constant: {value}"),
+    )
+    assert loaded == {
+        "ragas": {"score": None, "positive_infinity": None},
+        "rows": [{"score": None}],
     }
