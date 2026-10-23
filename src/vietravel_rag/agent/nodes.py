@@ -22,10 +22,6 @@ from vietravel_rag.models import AgentState, QueryAnalysis, TourAnswer
 _PRONOUNS = re.compile(r"\b(tour\s+đó|tour\s+này|tour\s+kia|chuyến\s+đó)\b", re.IGNORECASE)
 _ADJACENT = re.compile(r"\b(ngày\s+tiếp theo|ngày\s+trước đó|ngày\s+kế tiếp|ngày\s+trước)\b", re.IGNORECASE)
 _PREVIOUS = re.compile(r"\b(ngày\s+trước đó|ngày\s+trước)\b", re.IGNORECASE)
-_FULL_PROGRAM = re.compile(
-    r"(toàn bộ chương trình|chương trình đầy đủ|lịch trình đầy đủ|trọn chương trình|full itinerary)",
-    re.IGNORECASE,
-)
 _CURRENT_PRICE = re.compile(
     r"\b(?:hiện\s+(?:tại|nay)|mới\s+nhất|hôm\s+nay|ngày\s+này|đang\s+áp\s+dụng|"
     r"khuyến\s+mãi|ưu\s+đãi|promotion|current\s+price|today)\b",
@@ -253,17 +249,6 @@ def _retrieve(
     raise TypeError("retriever must be callable or provide retrieve()")
 
 
-def _full_itinerary(retriever, code: str) -> Document:
-    if hasattr(retriever, "get_full_itinerary"):
-        return retriever.get_full_itinerary(code)
-    catalog_store = getattr(retriever, "catalog_store", None)
-    if catalog_store is not None:
-        from vietravel_rag.retrieval.resolver import get_full_itinerary
-
-        return get_full_itinerary(code, catalog_store)
-    raise TypeError("retriever must provide exact full-itinerary lookup")
-
-
 def _document_key(document: Document) -> Any:
     return (
         getattr(document, "id", None)
@@ -287,20 +272,6 @@ def retrieve_node(state: AgentState, retriever) -> dict[str, Any]:
         comparison=_comparison_requested(analysis),
     )
     known = {_document_key(doc) for doc in chunks}
-    for summary_doc in state.get("tour_summaries", state.get("tour_candidates", [])):
-        if summary_doc.metadata.get("tour_code") in codes:
-            key = _document_key(summary_doc)
-            if key not in known:
-                chunks.append(summary_doc)
-                known.add(key)
-    standalone = analysis.standalone_query.casefold()
-    if analysis.intent in {"itinerary", "recommend_tour"} or _FULL_PROGRAM.search(standalone):
-        for code in codes:
-            full = _full_itinerary(retriever, code)
-            key = _document_key(full)
-            if key not in known:
-                chunks.append(full)
-                known.add(key)
     adjacent = _adjacent_chunk(state, retriever, analysis)
     if adjacent is not None:
         key = _document_key(adjacent)

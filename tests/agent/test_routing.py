@@ -178,9 +178,18 @@ def test_unsupported_reference_routes_to_unsupported():
     assert result["route"] == "unsupported"
 
 
-def test_retrieval_includes_summary_and_only_adds_exact_full_itinerary_when_requested():
+def test_retrieval_returns_knowledge_and_excludes_catalog_records():
     tour_summary = summary("tour-a", "Tour A")
-    knowledge = Document("Giá tour", metadata={"chunk_id": "price-a", "tour_code": "tour-a"})
+    knowledge = Document(
+        "Lịch trình ngày 1",
+        metadata={
+            "chunk_id": "itinerary-a-1",
+            "tour_code": "tour-a",
+            "document_type": "knowledge",
+            "authority": "official_tour_pdf",
+            "section_type": "itinerary",
+        },
+    )
     calls = []
 
     class Retriever:
@@ -190,32 +199,18 @@ def test_retrieval_includes_summary_and_only_adds_exact_full_itinerary_when_requ
 
         def get_full_itinerary(self, tour_code):
             calls.append(("full", tour_code))
-            return Document(
-                "Ngày 1...",
-                metadata={"document_type": "full_itinerary", "tour_code": tour_code},
-            )
+            raise AssertionError("catalog aggregate must not enter RAG contexts")
 
-    ordinary = retrieve_node(
+    result = retrieve_node(
         {
-            "query_analysis": analysis(),
+            "query_analysis": analysis("itinerary", query="Lịch trình ngày 1 tour A"),
             "active_tour_codes": ["tour-a"],
             "tour_summaries": [tour_summary],
         },
         Retriever(),
     )
-    calls_after_ordinary = list(calls)
-    itinerary = retrieve_node(
-        {
-            "query_analysis": analysis("itinerary", query="Lịch trình tour A"),
-            "active_tour_codes": ["tour-a"],
-            "tour_summaries": [tour_summary],
-        },
-        Retriever(),
-    )
-
-    assert ordinary["retrieved_chunks"] == [knowledge, tour_summary]
-    assert not any(call[0] == "full" for call in calls_after_ordinary if isinstance(call, tuple))
-    assert itinerary["retrieved_chunks"][-1].metadata["document_type"] == "full_itinerary"
+    assert result["retrieved_chunks"] == [knowledge]
+    assert calls == [("Lịch trình ngày 1 tour A", ["tour-a"], False)]
 
 
 def test_comparison_uses_ten_retrieval_limit_and_adjacent_day_uses_last_citation():
@@ -256,20 +251,15 @@ def test_comparison_uses_ten_retrieval_limit_and_adjacent_day_uses_last_citation
     assert day_three in adjacent["retrieved_chunks"]
 
 
-def test_recommendation_and_explicit_full_program_add_full_itinerary():
+def test_recommendation_and_full_program_do_not_add_catalog_aggregates():
     tour_summary = summary("tour-a")
-    full = Document(
-        "Toàn bộ ngày",
-        metadata={"document_type": "full_itinerary", "tour_code": "tour-a"},
-    )
 
     class Retriever:
         def retrieve(self, query, tour_codes, *, comparison=False):
             return []
 
         def get_full_itinerary(self, tour_code):
-            assert tour_code == "tour-a"
-            return full
+            raise AssertionError("catalog aggregate must not enter RAG contexts")
 
     for query_analysis in (
         analysis("recommend_tour", query="Tư vấn tour A"),
@@ -283,7 +273,7 @@ def test_recommendation_and_explicit_full_program_add_full_itinerary():
             },
             Retriever(),
         )
-        assert full in result["retrieved_chunks"]
+        assert result["retrieved_chunks"] == []
 
 
 def test_resolver_outputs_are_declared_in_langgraph_state_contract():
