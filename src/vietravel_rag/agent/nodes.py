@@ -24,6 +24,7 @@ from vietravel_rag.models import AgentState, QueryAnalysis, TourAnswer
 _PRONOUNS = re.compile(r"\b(tour\s+đó|tour\s+này|tour\s+kia|chuyến\s+đó)\b", re.IGNORECASE)
 _ADJACENT = re.compile(r"\b(ngày\s+tiếp theo|ngày\s+trước đó|ngày\s+kế tiếp|ngày\s+trước)\b", re.IGNORECASE)
 _PREVIOUS = re.compile(r"\b(ngày\s+trước đó|ngày\s+trước)\b", re.IGNORECASE)
+_WHICH_TOUR = re.compile(r"\btour\s+nào\b", re.IGNORECASE)
 _FULL_PROGRAM = re.compile(
     r"toàn bộ chương trình|chương trình đầy đủ|lịch trình đầy đủ|trọn chương trình|full itinerary|"
     r"tour .{0,40}\b\d+\s+ngày\b.{0,30}\bđi những đâu\b",
@@ -135,7 +136,7 @@ def resolve_tour_node(state: AgentState, resolver) -> dict[str, Any]:
     analysis = _analysis(state)
     if analysis.intent == "off_topic":
         return {"route": "safe_response", "tour_candidates": []}
-    if analysis.intent == "general":
+    if analysis.intent == "general" and not analysis.tour_references:
         return {"route": "general", "tour_candidates": []}
 
     active_codes = list(state.get("active_tour_codes", []))
@@ -157,7 +158,7 @@ def resolve_tour_node(state: AgentState, resolver) -> dict[str, Any]:
     if not candidates:
         return {"route": "clarification", "tour_candidates": []}
     if len(candidates) > 1:
-        if analysis.intent == "compare_tours" and len(analysis.tour_references) >= 2:
+        if _comparison_requested(analysis) and len(analysis.tour_references) >= 2:
             codes = [doc.metadata.get("tour_code") for doc in candidates]
             return {
                 "route": "retrieve",
@@ -184,7 +185,9 @@ def resolve_tour_node(state: AgentState, resolver) -> dict[str, Any]:
 
 
 def _comparison_requested(analysis: QueryAnalysis) -> bool:
-    return analysis.intent == "compare_tours"
+    return analysis.intent == "compare_tours" or bool(
+        _WHICH_TOUR.search(analysis.standalone_query) and len(analysis.tour_references) >= 2
+    )
 
 
 def _fetch_adjacent(retriever, tour_code: str, chunk_index: int) -> Document | None:
@@ -327,7 +330,7 @@ def input_guard_node(state: AgentState) -> dict[str, Any]:
     result: dict[str, Any] = {"messages": [*removals, *messages], "input_decision": decision.route}
     if decision.message:
         result["input_message"] = decision.message
-        status = "escalate" if decision.route == "safe_response" else "clarification_needed"
+        status = "unsupported" if decision.route == "safe_response" else "clarification_needed"
         result["response"] = TourAnswer(
             status=status, answer=decision.message, citation_ids=[], conflicts=[]
         ).model_dump()
@@ -549,7 +552,7 @@ def direct_response_node(state: AgentState) -> dict[str, Any]:
         )
     elif route == "safe_response":
         response = TourAnswer(
-            status="escalate", answer="Dạ, em chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu ạ.",
+            status="unsupported", answer="Dạ, em chỉ hỗ trợ thông tin liên quan đến các tour trong tài liệu ạ.",
             citation_ids=[], conflicts=[],
         )
     elif route == "general":

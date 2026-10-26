@@ -341,10 +341,11 @@ def _render_welcome() -> None:
     st.info("Chỗ trống, giá hiện hành và việc đặt tour cần nhân viên Vietravel xác nhận.")
 
 
-def _render_context(tour_codes: list[str]) -> None:
+def _render_context(tour_codes: list[str], *, clarification_needed: bool = False) -> None:
     labels = active_tour_labels(tour_codes)
     if labels:
-        st.caption("ĐANG TƯ VẤN · " + "  |  ".join(labels))
+        heading = "CẦN CHỌN TOUR" if clarification_needed else "ĐANG TƯ VẤN"
+        st.caption(f"{heading} · " + "  |  ".join(labels))
 
 
 def _render_suggestions(tour_codes: list[str], has_messages: bool) -> str | None:
@@ -414,7 +415,11 @@ def main() -> None:
         if not st.session_state.messages:
             _render_welcome()
         else:
-            _render_context(st.session_state.active_tour_codes)
+            _render_context(
+                st.session_state.active_tour_codes,
+                clarification_needed=st.session_state.messages[-1].get("status")
+                == "clarification_needed",
+            )
 
         for message in st.session_state.messages:
             _render_message(message)

@@ -22,6 +22,17 @@ def test_suggestions_use_tour_context_without_claiming_facts():
     assert all("còn chỗ" not in label.lower() for label, _ in questions)
 
 
+def test_context_labels_ambiguous_candidates_as_needing_selection(monkeypatch):
+    captions = []
+    monkeypatch.setattr(app.st, "caption", captions.append)
+
+    app._render_context(["danang-central-5d4n", "thailand-bangkok-pattaya"], clarification_needed=True)
+
+    assert captions == [
+        "CẦN CHỌN TOUR · Đà Nẵng – Hội An – Huế – Phong Nha  |  Thái Lan – Bangkok – Pattaya"
+    ]
+
+
 def test_citation_label_contains_tour_section_and_page():
     assert render_citation_label(
         {

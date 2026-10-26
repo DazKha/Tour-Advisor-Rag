@@ -47,6 +47,22 @@ def test_general_route_returns_a_purposeful_capability_response():
     assert "lịch trình" in result["response"]["answer"].casefold()
 
 
+def test_general_intent_about_named_tour_still_retrieves_evidence():
+    result = resolve_tour_node(
+        {
+            "query_analysis": analysis(
+                "general",
+                refs=["Bangkok – Pattaya"],
+                query="Tên khách sạn của tour Bangkok – Pattaya là gì?",
+            )
+        },
+        lambda query: [summary("thailand-bangkok-pattaya")],
+    )
+
+    assert result["route"] == "retrieve"
+    assert result["active_tour_codes"] == ["thailand-bangkok-pattaya"]
+
+
 def test_general_response_replaces_a_previous_turn_response():
     result = direct_response_node({
         "route": "general",
@@ -149,6 +165,24 @@ def test_explicit_two_tour_comparison_resolves_with_both_candidates():
                 refs=["tour A", "tour B"],
                 query="So sánh tour A với tour B",
             )
+        },
+        lambda query: candidates,
+    )
+
+    assert result["route"] == "retrieve"
+    assert result["active_tour_codes"] == ["tour-a", "tour-b"]
+
+
+def test_which_tour_followup_searches_both_named_tours():
+    candidates = [summary("tour-a"), summary("tour-b")]
+    result = resolve_tour_node(
+        {
+            "query_analysis": analysis(
+                "itinerary",
+                refs=["tour A", "tour B"],
+                query="Trong hai tour A và B, tour nào có chợ nổi?",
+            ),
+            "active_tour_codes": ["tour-a", "tour-b"],
         },
         lambda query: candidates,
     )
