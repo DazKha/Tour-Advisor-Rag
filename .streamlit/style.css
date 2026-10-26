@@ -12,7 +12,7 @@
 
 .block-container {
   max-width: 1050px;
-  padding-top: 2.25rem;
+  padding-top: 5rem;
   padding-bottom: 7rem;
 }
 
@@ -76,7 +76,7 @@
 }
 
 @media (max-width: 640px) {
-  .block-container { padding: 1.15rem 1rem 6.5rem; }
+  .block-container { padding: 4.5rem 1rem 6.5rem; }
   .brand-heading { font-size: 1.65rem; }
   .stChatMessage { border-radius: 0.85rem; }
 }

@@ -350,11 +350,14 @@ def _render_context(tour_codes: list[str]) -> None:
 def _render_suggestions(tour_codes: list[str], has_messages: bool) -> str | None:
     questions = suggested_questions(tour_codes, has_messages)
     st.caption("GỢI Ý CÂU HỎI" if not has_messages else "HỎI TIẾP")
-    columns = st.columns(2)
     selected = None
-    for index, (label, prompt) in enumerate(questions):
-        if columns[index % 2].button(label, key=f"suggestion-{index}", use_container_width=True):
-            selected = prompt
+    for row_start in range(0, len(questions), 2):
+        columns = st.columns(2)
+        for offset, (label, prompt) in enumerate(questions[row_start : row_start + 2]):
+            if columns[offset].button(
+                label, key=f"suggestion-{row_start + offset}", use_container_width=True
+            ):
+                selected = prompt
     return selected
 
 
