@@ -1,0 +1,82 @@
+:root {
+  --travel-blue: #0c4f9b;
+  --travel-navy: #123251;
+  --travel-orange: #ec8439;
+  --travel-sky: #eef6ff;
+}
+
+.stApp {
+  background: radial-gradient(circle at 88% 0%, #eaf5ff 0, transparent 32%), #f8fbff;
+  color: var(--travel-navy);
+}
+
+.block-container {
+  max-width: 1050px;
+  padding-top: 2.25rem;
+  padding-bottom: 7rem;
+}
+
+.brand-eyebrow {
+  color: var(--travel-blue);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.55rem;
+}
+
+.brand-heading {
+  color: var(--travel-navy);
+  font-size: clamp(1.6rem, 3vw, 2.65rem);
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1.14;
+}
+
+.stChatMessage {
+  background: #fff;
+  border: 1px solid #e1eaf4;
+  border-radius: 1.1rem;
+  box-shadow: 0 5px 22px rgba(16, 63, 113, 0.045);
+  margin: 0.8rem 0;
+}
+
+.stChatMessage[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+  background: var(--travel-sky);
+}
+
+.stButton button {
+  border-radius: 0.85rem;
+  border-color: #c7dbef;
+  color: var(--travel-blue);
+  font-weight: 650;
+  min-height: 2.85rem;
+}
+
+.stButton button:hover {
+  border-color: var(--travel-blue);
+  color: var(--travel-blue);
+  background: #eef6ff;
+}
+
+.stButton button:focus-visible,
+.stChatInput textarea:focus-visible {
+  outline: 3px solid var(--travel-orange);
+  outline-offset: 2px;
+}
+
+[data-testid="stExpander"] {
+  border-color: #dce8f3;
+  border-radius: 0.75rem;
+  background: #fbfdff;
+}
+
+[data-testid="stChatInput"] {
+  max-width: 850px;
+  margin: auto;
+}
+
+@media (max-width: 640px) {
+  .block-container { padding: 1.15rem 1rem 6.5rem; }
+  .brand-heading { font-size: 1.65rem; }
+  .stChatMessage { border-radius: 0.85rem; }
+}

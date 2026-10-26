@@ -302,22 +302,60 @@ def _safe_source(doc: Any) -> dict[str, Any]:
 def _render_message(message: dict[str, Any]) -> None:
     with st.chat_message(message["role"]):
         if message["role"] == "assistant":
-            st.caption(f"Trạng thái: {response_status_label(message.get('status', 'answered'))}")
+            status = message.get("status", "answered")
+            if status != "answered":
+                st.caption(response_status_label(status))
             st.markdown(format_response_markdown(message["content"]))
         else:
             st.markdown(message["content"])
-        for index, source in enumerate(message.get("sources", [])):
-            metadata = source["metadata"]
-            with st.expander(render_citation_label(metadata)):
-                st.text(source["content"])
-                debug = {
-                    key: metadata[key]
-                    for key in ("chunk_id", "section_type", "document_type", "authority", "similarity", "score")
-                    if metadata.get(key) is not None
-                }
-                if debug:
-                    st.caption("Thông tin nguồn")
+        _render_sources(message.get("sources", []))
+
+
+def _render_sources(sources: list[dict[str, Any]]) -> None:
+    for source in sources:
+        metadata = source["metadata"]
+        with st.expander(render_citation_label(metadata)):
+            st.text(source["content"])
+            debug = {
+                key: metadata[key]
+                for key in ("chunk_id", "section_type", "document_type", "authority", "similarity", "score")
+                if metadata.get(key) is not None
+            }
+            if debug:
+                with st.expander("Chi tiết demo"):
                     st.json(debug)
+
+
+def _render_header() -> None:
+    st.markdown(
+        '<div class="brand-eyebrow">VIETRAVEL · TRỢ LÝ TOUR</div>'
+        '<div class="brand-heading">Hành trình bắt đầu từ một câu hỏi.</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Tư vấn từ tài liệu của 4 tour · Có dẫn nguồn để bạn kiểm tra")
+
+
+def _render_welcome() -> None:
+    st.markdown("### Bạn muốn tìm hiểu điều gì?")
+    st.write("Hỏi về lịch trình, giá, chi phí hoặc chính sách. Mình sẽ tìm trong tài liệu tour.")
+    st.info("Chỗ trống, giá hiện hành và việc đặt tour cần nhân viên Vietravel xác nhận.")
+
+
+def _render_context(tour_codes: list[str]) -> None:
+    labels = active_tour_labels(tour_codes)
+    if labels:
+        st.caption("ĐANG TƯ VẤN · " + "  |  ".join(labels))
+
+
+def _render_suggestions(tour_codes: list[str], has_messages: bool) -> str | None:
+    questions = suggested_questions(tour_codes, has_messages)
+    st.caption("GỢI Ý CÂU HỎI" if not has_messages else "HỎI TIẾP")
+    columns = st.columns(2)
+    selected = None
+    for index, (label, prompt) in enumerate(questions):
+        if columns[index % 2].button(label, key=f"suggestion-{index}", use_container_width=True):
+            selected = prompt
+    return selected
 
 
 def _init_state() -> None:
@@ -354,29 +392,33 @@ def _run_turn(graph, prompt: str) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Vietravel Tour Assistant", page_icon="✈️")
+    st.set_page_config(page_title="Trợ lý tour Vietravel", page_icon="✈️", layout="wide")
     _init_state()
-    st.title("Vietravel Tour Assistant")
-    st.caption("Thông tin trả lời chỉ dựa trên bộ tài liệu tour đã được cung cấp.")
-    st.info("Tình trạng chỗ và việc đặt tour cần nhân viên Vietravel xác nhận.")
+    stylesheet = Path(".streamlit/style.css")
+    if stylesheet.is_file():
+        st.markdown(f"<style>{stylesheet.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
-    if st.button("Làm mới cuộc trò chuyện"):
-        reset_conversation(st.session_state)
-        st.rerun()
+    _left, center, right = st.columns([1, 7, 2])
+    with center:
+        _render_header()
+    with right:
+        if st.button("Cuộc trò chuyện mới", use_container_width=True):
+            reset_conversation(st.session_state)
+            st.rerun()
 
-    suggestions = [
-        ("Hỏi lịch trình", "Lịch trình tour Bangkok – Pattaya gồm những điểm nào?"),
-        ("Hỏi giá trẻ em", "Giá trẻ em của tour Bangkok – Pattaya như thế nào?"),
-        ("Hỏi hành lý", "Hành lý ký gửi của tour Đà Nẵng quy định ra sao?"),
-    ]
-    columns = st.columns(len(suggestions))
-    selected_prompt = None
-    for column, (label, prompt) in zip(columns, suggestions, strict=True):
-        if column.button(label):
-            selected_prompt = prompt
+    _, content, _ = st.columns([1, 8, 1])
+    with content:
+        if not st.session_state.messages:
+            _render_welcome()
+        else:
+            _render_context(st.session_state.active_tour_codes)
 
-    for message in st.session_state.messages:
-        _render_message(message)
+        for message in st.session_state.messages:
+            _render_message(message)
+
+        selected_prompt = _render_suggestions(
+            st.session_state.active_tour_codes, bool(st.session_state.messages)
+        )
 
     try:
         graph = load_graph_resources()
@@ -391,7 +433,7 @@ def main() -> None:
         st.error("Chưa thể khởi tạo dịch vụ. Kiểm tra cấu hình API và dữ liệu ứng dụng, không chia sẻ khóa bí mật.")
         return
 
-    prompt = selected_prompt or st.chat_input("Nhập câu hỏi về tour…")
+    prompt = selected_prompt or st.chat_input("Bạn muốn biết gì về tour?", key="tour-question")
     if prompt:
         with st.chat_message("user"):
             st.markdown(prompt)

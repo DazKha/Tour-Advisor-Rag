@@ -145,11 +145,26 @@ def test_render_message_formats_assistant_copy_and_keeps_sources_and_message_unc
 
     app._render_message(message)
 
-    assert rendered["captions"][0] == "Trạng thái: Có thông tin cần xác nhận"
+    assert rendered["captions"][0] == "Có thông tin cần xác nhận"
     assert rendered["markdown"] == ["Các điểm chính:\n\n- Ngày 1: Tham quan."]
     assert message == original
-    assert rendered["expanders"] == ["Đà Nẵng – Hội An · Lịch trình · Trang 1"]
+    assert rendered["expanders"] == [
+        "Đà Nẵng – Hội An · Lịch trình · Trang 1",
+        "Chi tiết demo",
+    ]
     assert rendered["text"] == ["Nguồn gốc"]
+
+
+def test_answered_message_does_not_show_redundant_status(monkeypatch):
+    captions = []
+    monkeypatch.setattr(app.st, "chat_message", lambda role: nullcontext())
+    monkeypatch.setattr(app.st, "caption", captions.append)
+    monkeypatch.setattr(app.st, "markdown", lambda value: None)
+    monkeypatch.setattr(app.st, "expander", lambda label: nullcontext())
+
+    app._render_message({"role": "assistant", "content": "Lịch trình", "status": "answered", "sources": []})
+
+    assert captions == []
 
 
 def test_render_message_keeps_user_markdown_unchanged(monkeypatch):
