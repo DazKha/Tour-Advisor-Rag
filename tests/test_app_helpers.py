@@ -9,6 +9,19 @@ from vietravel_rag.agent.graph import build_graph
 from vietravel_rag.models import QueryAnalysis
 
 
+def test_active_tour_labels_hide_unknown_codes():
+    assert app.active_tour_labels(["danang-central-5d4n", "unknown"]) == [
+        "Đà Nẵng – Hội An – Huế – Phong Nha"
+    ]
+
+
+def test_suggestions_use_tour_context_without_claiming_facts():
+    questions = app.suggested_questions(["danang-central-5d4n"], True)
+    assert questions
+    assert all("Đà Nẵng" in prompt for _, prompt in questions)
+    assert all("còn chỗ" not in label.lower() for label, _ in questions)
+
+
 def test_citation_label_contains_tour_section_and_page():
     assert render_citation_label(
         {

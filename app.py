@@ -27,6 +27,37 @@ class MissingTourIndexError(RuntimeError):
     """Raised when local reviewed data or the persisted tour index is unavailable."""
 
 
+TOUR_NAMES = {
+    "danang-central-5d4n": "Đà Nẵng – Hội An – Huế – Phong Nha",
+    "mekong-my-tho-ben-tre-can-tho": "Miền Tây – Mỹ Tho – Bến Tre – Cần Thơ",
+    "thailand-bangkok-pattaya": "Thái Lan – Bangkok – Pattaya",
+    "china-lijiang-dali-shangrila": "Trung Quốc – Lệ Giang – Đại Lý – Shangrila",
+}
+
+
+def active_tour_labels(tour_codes: list[str]) -> list[str]:
+    """Display only known tours from the reviewed four-tour catalog."""
+    return [TOUR_NAMES[code] for code in tour_codes if code in TOUR_NAMES]
+
+
+def suggested_questions(tour_codes: list[str], has_messages: bool) -> list[tuple[str, str]]:
+    """Return safe prompt shortcuts without introducing tour facts."""
+    labels = active_tour_labels(tour_codes)
+    if has_messages and len(labels) == 1:
+        tour = labels[0]
+        return [
+            ("Lịch trình", f"Lịch trình tour {tour} gồm những điểm nào?"),
+            ("Giá và chi phí", f"Giá tour {tour} và các chi phí chưa bao gồm là gì?"),
+            ("Chính sách", f"Chính sách thanh toán và hủy tour {tour} như thế nào?"),
+        ]
+    return [
+        ("Xem lịch trình", "Lịch trình tour Thái Lan – Bangkok – Pattaya gồm những điểm nào?"),
+        ("Giá và chi phí", "Giá tour Thái Lan – Bangkok – Pattaya và các chi phí chưa bao gồm là gì?"),
+        ("So sánh tour", "So sánh tour Đà Nẵng và tour Miền Tây về lịch trình."),
+        ("Hỏi chính sách", "Chính sách thanh toán và hủy tour Đà Nẵng như thế nào?"),
+    ]
+
+
 def load_settings() -> Settings:
     """Load Community Cloud secrets when present, falling back to environment and .env."""
     names = {
