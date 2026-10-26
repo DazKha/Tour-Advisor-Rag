@@ -1,0 +1,225 @@
+{
+  "judge": "Codex GPT-6 (LLM-as-a-judge)",
+  "run_artifact": "results/eval_results.json",
+  "cohort_rule": "expected_status=answered and non-empty reference_context_ids",
+  "cohort_size": 18,
+  "rubric": {
+    "correct": "The response answers the question, states the essential facts correctly, and contains no material contradiction with the cited source evidence.",
+    "partially_correct": "The core answer is right but an essential fact is missing, or a non-central detail is unsupported or inaccurate.",
+    "incorrect": "The core answer is wrong, materially contradicted by the source, or does not answer the question.",
+    "strict_accuracy": "Correct cases divided by all cases in the cohort; partial and incorrect count as not correct."
+  },
+  "limitations": [
+    "This is a single LLM-judge pass, not a human adjudication or multi-judge consensus.",
+    "Judgments compare each answer with the user question and reviewed source chunks; stylistic variation is not penalized."
+  ],
+  "judgments": [
+    {
+      "case_id": "factual_thai_price",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "thailand-bangkok-pattaya_price_01"
+      ],
+      "reason": "Both adult prices are copied correctly from the full-package and no-airfare columns.",
+      "answer_sha256": "09cb9e8b6f3a4a4210bcd76fcf0ef213e56ac8157ff37388fcb981cefe975318"
+    },
+    {
+      "case_id": "factual_thai_child_price",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "thailand-bangkok-pattaya_child_price_01",
+        "thailand-bangkok-pattaya_price_01"
+      ],
+      "reason": "Age band, 90% rate, bed conditions, listed child/adult prices, and one-adult room note match the sources.",
+      "answer_sha256": "ea14b4c8ebb84ff240d7ca6d8cb8720a8d1b39f1b09b6222109ee1a480ccbde3"
+    },
+    {
+      "case_id": "factual_mekong_price",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_price_01"
+      ],
+      "reason": "The adult price of 1,990,000 VND and age threshold are stated correctly.",
+      "answer_sha256": "f65844e6654823c2e1dbda33cd07dd0132d9b4834d925accc42b6ce19fe3172c"
+    },
+    {
+      "case_id": "factual_danang_child",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "danang-central-5d4n_child_price_01",
+        "danang-central-5d4n_price_01"
+      ],
+      "reason": "The 75% child rate, no-bed condition, and derived listed price of 6,742,500 VND match the source values.",
+      "answer_sha256": "be6c2560cd665ccedb351cf8020ddb1b4cac6f6ccaa54473c743177a4a3e7766"
+    },
+    {
+      "case_id": "factual_china_price",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "china-lijiang-dali-shangrila_price_01"
+      ],
+      "reason": "Adult, child, infant, and single-room surcharge amounts match the table; the airfare wording is consistent with the table heading.",
+      "answer_sha256": "2cee72c60ed164070cc64fd2486d8bb50843537c8e441fe3d828fbd61161d553"
+    },
+    {
+      "case_id": "factual_mekong_included",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_included_01"
+      ],
+      "reason": "The answer lists exactly two breakfasts, two lunches, and one dinner.",
+      "answer_sha256": "5f7da35d7f958317cdb48baf14d485e770b62bd6136c28b5338046b47f57607f"
+    },
+    {
+      "case_id": "factual_thai_excluded",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "thailand-bangkok-pattaya_excluded_01"
+      ],
+      "reason": "The listed exclusions and the 135,000 VND/day, 1,500,000 VND/day, and 2,200,000 VND surcharges match the source.",
+      "answer_sha256": "96b220837c0a33acb3056db815f11cdad539b43f10885b3070611935de6fe2bd"
+    },
+    {
+      "case_id": "factual_china_visa_docs",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "china-lijiang-dali-shangrila_visa_01",
+        "china-lijiang-dali-shangrila_visa_04",
+        "china-lijiang-dali-shangrila_visa_05",
+        "china-lijiang-dali-shangrila_registration_notes_02"
+      ],
+      "reason": "The passport, photo, application, household/residency, minor, processing-time, and foreign-national requirements are supported by retrieved source chunks.",
+      "answer_sha256": "6e29faa14c78bead835da33d96fefd93a3e7cdbfe3f855112c28c0760206dd0d"
+    },
+    {
+      "case_id": "factual_danang_payment",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "danang-central-5d4n_payment_01"
+      ],
+      "reason": "The 50% deposit and 7–10 / 20–25 day payment deadlines match the payment terms.",
+      "answer_sha256": "6b284486529c3c77c2a54ca290b91a156c3969302371f42d97c98f033afa5ce2"
+    },
+    {
+      "case_id": "factual_mekong_excluded",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_excluded_01"
+      ],
+      "reason": "Both categories of excluded costs are accurately summarized.",
+      "answer_sha256": "51ca7b5d379ba1e8d671b8daee33d4816b493d2c401c4a645c8f300f4607f677"
+    },
+    {
+      "case_id": "itinerary_danang_days",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "danang-central-5d4n_itinerary_01",
+        "danang-central-5d4n_itinerary_02",
+        "danang-central-5d4n_itinerary_03",
+        "danang-central-5d4n_itinerary_04",
+        "danang-central-5d4n_itinerary_05"
+      ],
+      "reason": "The five daily routes, named activities, and overnight locations match the five itinerary chunks.",
+      "answer_sha256": "235f4f8fd78b2820e31d4a6e72d09a2a86dad30a9153486317c25159fba17eea"
+    },
+    {
+      "case_id": "itinerary_thai_baiyoke",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "thailand-bangkok-pattaya_itinerary_04"
+      ],
+      "reason": "Day 4, Baiyoke Sky lunch, Hoàng Cung, river cruise, and shopping are in the cited day plan.",
+      "answer_sha256": "944c8dec76e743766dbe03895741babb05c141ad0247cc55c9ce861d936c7999"
+    },
+    {
+      "case_id": "itinerary_china_lijiang",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "china-lijiang-dali-shangrila_itinerary_05"
+      ],
+      "reason": "Day 5 and the listed Jade Dragon Snow Mountain activities match the itinerary; no claim of guaranteed operation is made.",
+      "answer_sha256": "39cabf0334ff52b884a61a3bb8823fb30814337055b97bae42190e8c896c2234"
+    },
+    {
+      "case_id": "itinerary_mekong_market",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_itinerary_02"
+      ],
+      "reason": "The answer correctly identifies Day 2 and Chợ nổi Cái Răng.",
+      "answer_sha256": "aa14ca1ed246994667055ccb1dc9970679b4062b02836b8c78f49345cb4c0949"
+    },
+    {
+      "case_id": "itinerary_compare_duration",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "danang-central-5d4n_tour_overview_01",
+        "china-lijiang-dali-shangrila_tour_overview_01",
+        "danang-central-5d4n_itinerary_01",
+        "china-lijiang-dali-shangrila_itinerary_01"
+      ],
+      "reason": "The departure/return dates in the retrieved tour summaries support 5 days/4 nights and 6 days/5 nights; the comparison is arithmetically correct.",
+      "answer_sha256": "4978b683f8e1f6eb268f694ea230727af40f7081f04ae4a17c57945de698c57b"
+    },
+    {
+      "case_id": "multiturn_thai_child_followup",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "thailand-bangkok-pattaya_child_price_01",
+        "thailand-bangkok-pattaya_price_01"
+      ],
+      "reason": "The follow-up resolves to Bangkok–Pattaya and the age bands, prices, and bed conditions match the sources.",
+      "answer_sha256": "f69768664097a04daa02cc67d196f65a4e08757fc4b0f9bdbe87ff391e22aa62"
+    },
+    {
+      "case_id": "multiturn_danang_payment",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "danang-central-5d4n_payment_01"
+      ],
+      "reason": "The follow-up correctly preserves the Đà Nẵng tour context and repeats the deposit and deadlines accurately.",
+      "answer_sha256": "b426b56550a892cb782d52689b39154faabd11df0ed4f65cd3782f6f64e465a3"
+    },
+    {
+      "case_id": "multiturn_compare_followup",
+      "label": "correct",
+      "score": 1,
+      "evidence_chunk_ids": [
+        "mekong-my-tho-ben-tre-can-tho_itinerary_02",
+        "thailand-bangkok-pattaya_itinerary_01",
+        "thailand-bangkok-pattaya_itinerary_02",
+        "thailand-bangkok-pattaya_itinerary_03",
+        "thailand-bangkok-pattaya_itinerary_04"
+      ],
+      "reason": "The Mekong tour includes Chợ nổi Cái Răng; the retrieved full Thai itinerary does not list a floating market.",
+      "answer_sha256": "b2cc3d1dddee31b3db8f76bc5428e767c27820d78fdfc32ddc88135ec328ffbc"
+    }
+  ],
+  "summary": {
+    "correct": 18,
+    "partially_correct": 0,
+    "incorrect": 0,
+    "strict_accuracy": 1.0,
+    "case_count": 18
+  },
+  "total_evaluation_cases": 30,
+  "excluded_from_answer_accuracy": 12,
+  "accuracy_scope": "Direct-answer cases only; this is not overall accuracy across the 30-case evaluation suite."
+}

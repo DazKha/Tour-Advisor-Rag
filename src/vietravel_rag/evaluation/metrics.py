@@ -137,6 +137,46 @@ def _rate(numerator: int, denominator: int) -> float:
     return numerator / denominator if denominator else 0.0
 
 
+def retrieval_precision_recall_at_k(
+    cases: list[dict], results: list[dict], cutoffs: tuple[int, ...] = (1, 3, 5)
+) -> dict[str, Any]:
+    """Compute macro Recall@K and Precision@K against reviewed relevant chunk IDs.
+
+    Cases without reference_context_ids are intentionally excluded because they
+    have no retrieval target (for example, clarification, live-data, and off-topic cases).
+    Precision follows the standard fixed denominator K.
+    """
+    if len(cases) != len(results):
+        raise ValueError("cases and results must have the same length")
+    eligible = [
+        (case, result)
+        for case, result in zip(cases, results, strict=True)
+        if case.get("reference_context_ids")
+    ]
+    metrics: dict[str, Any] = {
+        "eligible_cases": len(eligible),
+        "excluded_cases_without_relevant_context": len(cases) - len(eligible),
+        "by_k": {},
+    }
+    for k in cutoffs:
+        if k < 1:
+            raise ValueError("K must be at least 1")
+        recalls = []
+        precisions = []
+        for case, result in eligible:
+            relevant = set(case["reference_context_ids"])
+            retrieved = list(dict.fromkeys(result.get("retrieved_context_ids", [])))[:k]
+            hits = len(relevant.intersection(retrieved))
+            recalls.append(hits / len(relevant))
+            precisions.append(hits / k)
+        metrics["by_k"][str(k)] = {
+            "recall": round(sum(recalls) / len(recalls), 6) if recalls else None,
+            "precision": round(sum(precisions) / len(precisions), 6) if precisions else None,
+            "cases": len(eligible),
+        }
+    return metrics
+
+
 def numeric_grounding_rate(results: list[dict], contexts: list[list[str]]) -> float:
     """Return the fraction of answer numeric facts supported by retrieved text."""
     claims = grounded = 0
@@ -229,6 +269,7 @@ def score_cases(cases: list[dict], results: list[dict]) -> dict[str, Any]:
         "forbidden_claim_rate": forbidden_claim_rate(
             results, [case.get("must_not_contain", []) for case in cases]
         ),
+        "retrieval": retrieval_precision_recall_at_k(cases, results),
         "latency": latency_summary(latencies),
         "timestamp_utc": datetime.now(UTC).isoformat(),
     }

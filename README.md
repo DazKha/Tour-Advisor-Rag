@@ -85,7 +85,7 @@ python scripts/audit_chunks.py
 
 ## Evaluation
 
-The report baseline is `results/eval_summary.json`, produced on 2026-10-23 from the fixed 30-case dataset. The full evaluation calls the configured chat and embedding APIs and can incur charges. It requires the DeepSeek price assumptions and their source to be recorded explicitly:
+The report baseline is `results/eval_summary.json`, produced on 2026-10-23 from the reviewed 30-case dataset. Retrieval is scored from annotated relevant chunk IDs with Recall@K and Precision@K; Ragas is used only for Faithfulness. The full evaluation calls the configured chat and embedding APIs and can incur charges. It requires the DeepSeek price assumptions and their source to be recorded explicitly:
 
 ```bash
 python scripts/evaluate.py \
@@ -94,7 +94,7 @@ python scripts/evaluate.py \
   --price-source-url https://api-docs.deepseek.com/quick_start/pricing/
 ```
 
-Use `--limit 1 --skip-ragas` for a smaller deterministic smoke run. Do not run a full evaluation when the account balance is insufficient. The recorded prices are DeepSeek Flash peak cache-miss input and output rates used for this run. Gemini embedding charges are not included because usage was unavailable. The estimated cost per 1,000 questions includes assistant inference only; Ragas judge cost is shown separately.
+Use `--limit 1 --skip-ragas` for a smaller deterministic smoke run. Do not run a full evaluation when the account balance is insufficient. The recorded prices are DeepSeek Flash peak cache-miss input and output rates used for this run. Gemini embedding charges are not included because usage was unavailable. The estimated cost per 1,000 questions includes assistant inference only; Ragas judge cost is shown separately. Seven cases have no annotated retrieval target (clarification, live-data, or off-topic questions), so retrieval metrics use the 23 answerable, source-grounded cases.
 
 ### Recorded results
 
@@ -102,26 +102,21 @@ All 30 graph cases completed. The run measured end-to-end latency across the 30 
 
 | Required report metric | Result |
 |---|---:|
-| Accuracy (Answer Correctness) | 0.371 (30/30) |
-| Incorrect/unsupported content proxy (1 − Faithfulness) | 0.453 |
-| Cases with Faithfulness below 1.0 | 60.0% (18/30) |
+| Answer accuracy, direct-answer cohort (LLM judge) | 1.000 (18/18) |
+| Recall@1 / @3 / @5 | 0.726 / 0.852 / 0.883 (23 cases) |
+| Precision@1 / @3 / @5 | 0.826 / 0.362 / 0.235 (23 cases) |
+| Faithfulness (Ragas) | 0.823 (18/18 answerable cases with evidence) |
+| Unsupported-content proxy (1 − Faithfulness) | 0.177 |
+| Cases with Faithfulness below 1.0 | 33.3% (6/18) |
 | Latency p50 / p95 | 3.89 s / 20.38 s |
 | Assistant inference cost for 30 questions | $0.0561 |
 | Estimated assistant inference cost per 1,000 questions | $1.8683 |
 
 The p95 exceeds the prior 18.11-second investigation threshold. The slowest cases were `factual_china_visa_docs` at 34.30 seconds and `multiturn_compare_followup` at 25.90 seconds. The long visa answer included several passport and application details, while the comparison answer covered both tours. The latency is sensitive to provider response time and answer length.
 
-Ragas 0.3.1 retrieval and generation metrics:
+Recall@K is the macro average of relevant retrieved chunk IDs divided by all relevant IDs for each case. Precision@K is the macro average of relevant IDs in the first K results divided by K. Ragas 0.3.1 evaluates Faithfulness only on the 18 cases expected to receive a direct answer and with annotated evidence. The retrieval labels were checked against the processed source chunks; all 23 non-empty label sets point to evidence relevant to their questions. These results are a take-home baseline, not production acceptance.
 
-| Ragas metric | Finite cases | Mean |
-|---|---:|---:|
-| Context Precision with reference | 30/30 | 0.563 |
-| Context Recall | 30/30 | 0.467 |
-| Faithfulness | 30/30 | 0.547 |
-| Answer Relevancy | 29/30 | 0.520 |
-| Answer Correctness | 30/30 | 0.371 |
-
-The Ragas judge used 350,211 input and 458,309 output tokens, costing $0.6550 at the recorded rates. Total assistant plus judge spend for this evaluation was $0.7111; this one-time evaluation cost is excluded from the per-question inference estimate. The weakest quality results are Answer Correctness (0.371), Context Recall (0.467), and Faithfulness (0.547). They indicate that the assistant still misses reference details and sometimes produces claims the judge could not ground. These results are a take-home baseline, not production acceptance.
+All 30 cases were run. Answer accuracy is reported only for the 18 cases whose expected behavior is a direct answer; the 12 clarification, abstention, conflict, real-time, or off-topic cases are excluded under the agreed scope to avoid turning this into a guardrail score. Codex GPT-6 judged those 18 answers against each question and reviewed source chunks using a strict correct / partially correct / incorrect rubric. A case counts correct only when it answers the question, states the essential facts correctly, and has no material contradiction. All 18 were judged correct in this single LLM-judge pass; per-case rationales and evidence IDs are in `results/answer_judgments.json`. This is a model judgment, not human adjudication. Faithfulness remains the Ragas metric and measures support from retrieved context; it is not interchangeable with answer accuracy.
 
 ## Five-prompt interview demo
 

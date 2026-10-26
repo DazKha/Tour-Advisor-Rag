@@ -114,6 +114,16 @@ def test_conflict_few_shot_pairs_illustrative_evidence_and_uses_natural_wording(
     assert match is not None
     assert "23kg" in match["evidence"] and "20kg" in match["evidence"]
     assert match["question"] == "Hành lý ký gửi của tour Đà Nẵng quy định ra sao?"
-    assert "điểm anh/chị nên lưu ý" in match["answer"]
+    assert "hai mức hành lý khác nhau" in match["answer"]
+    assert "Em chưa thể xác nhận mức nào đang áp dụng" in match["answer"]
+    assert "nhân viên Vietravel kiểm tra và xác nhận" in match["answer"]
     assert "Dạ, Điểm" not in match["answer"]
     assert "•" not in match["answer"]
+
+
+def test_answer_prompt_keeps_sales_guidance_grounded_and_avoids_fake_handoff():
+    prompt = ANSWER_GENERATION_SYSTEM_PROMPT
+    assert "sales guidance as conversation style only" in prompt
+    assert "Never imply that a booking, seat hold, payment, or follow-up has been completed" in prompt
+    assert "Do not say that the case has been sent, escalated, or assigned to staff" in prompt
+    assert "Do not choose a winning" in prompt

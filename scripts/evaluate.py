@@ -28,13 +28,7 @@ from vietravel_rag.retrieval.retriever import (
 
 PRICE_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
 DEFAULT_DATASET = Path("data/eval/eval_cases.jsonl")
-RAGAS_METRICS = {
-    "context_precision": "llm_context_precision_with_reference",
-    "context_recall": "context_recall",
-    "faithfulness": "faithfulness",
-    "answer_relevancy": "answer_relevancy",
-    "answer_correctness": "answer_correctness",
-}
+RAGAS_METRICS = {"faithfulness": "faithfulness"}
 
 
 def load_cases(path: str | Path) -> list[dict]:
@@ -176,6 +170,7 @@ def ragas_records(cases: list[dict], results: list[dict]) -> list[dict]:
     """Adapt completed runs to Ragas 0.3 collections-style fields plus context IDs."""
     return [
         {
+            "case_id": case["case_id"],
             "user_input": result["user_input"],
             "retrieved_contexts": result["retrieved_contexts"],
             "reference_contexts": result["reference_contexts"],
@@ -188,7 +183,7 @@ def ragas_records(cases: list[dict], results: list[dict]) -> list[dict]:
 
 
 def summarize_ragas_rows(rows: list[dict]) -> dict:
-    """Aggregate finite Ragas scores and derive report-facing quality rates."""
+    """Aggregate the sole Ragas quality metric: Faithfulness."""
     metrics = {}
     finite_by_metric = {}
     for name, column in RAGAS_METRICS.items():
@@ -207,7 +202,6 @@ def summarize_ragas_rows(rows: list[dict]) -> dict:
 
     faithfulness = finite_by_metric["faithfulness"]
     report_metrics = {
-        "accuracy": metrics["answer_correctness"]["mean"],
         "unsupported_claim_rate": (
             round(1.0 - metrics["faithfulness"]["mean"], 6)
             if metrics["faithfulness"]["mean"] is not None
@@ -256,52 +250,44 @@ def evaluation_cost_summary(
 
 
 def run_ragas(cases: list[dict], results: list[dict], settings: Settings) -> dict:
-    """Run Ragas 0.3 metrics using DeepSeek judge and Gemini embeddings."""
+    """Run Ragas Faithfulness on answerable cases with annotated evidence."""
     from ragas import EvaluationDataset, evaluate
-    from ragas.metrics import (
-        AnswerCorrectness,
-        Faithfulness,
-        LLMContextPrecisionWithReference,
-        LLMContextRecall,
-        ResponseRelevancy,
-    )
+    from ragas.metrics import Faithfulness
 
-    records = ragas_records(cases, results)
-    sample_fields = {
-        "user_input",
-        "retrieved_contexts",
-        "reference_contexts",
-        "response",
-        "reference",
-    }
+    eligible = [
+        (case, result)
+        for case, result in zip(cases, results, strict=True)
+        if case.get("expected_status") == "answered" and case.get("reference_context_ids")
+    ]
+    faithfulness_cases = [case for case, _ in eligible]
+    faithfulness_results = [result for _, result in eligible]
+    records = ragas_records(faithfulness_cases, faithfulness_results)
+    sample_fields = {"user_input", "retrieved_contexts", "response"}
     dataset = EvaluationDataset.from_list(
         [{key: value for key, value in record.items() if key in sample_fields} for record in records]
     )
     llm = get_chat_model(settings)
-    embeddings = get_embeddings(settings)
     usage = UsageHandler()
-    metrics = [
-        LLMContextPrecisionWithReference(),
-        LLMContextRecall(),
-        Faithfulness(),
-        ResponseRelevancy(),
-        AnswerCorrectness(),
-    ]
+    metrics = [Faithfulness()]
     evaluation = evaluate(
         dataset,
         metrics=metrics,
         llm=llm,
-        embeddings=embeddings,
         callbacks=[usage],
         show_progress=False,
         raise_exceptions=False,
     )
     metric_rows = evaluation.to_pandas().to_dict(orient="records")
+    for case, metric_row in zip(faithfulness_cases, metric_rows, strict=True):
+        metric_row["case_id"] = case["case_id"]
     return {
         "version": package_version("ragas"),
         "judge_model": settings.llm_model,
         "judge_provider": "DeepSeek OpenAI-compatible chat endpoint",
         "judge_model_self_evaluation": True,
+        "eligible_cases": len(faithfulness_cases),
+        "excluded_cases": len(cases) - len(faithfulness_cases),
+        "cohort": "expected_status=answered and non-empty reference_context_ids",
         "metric_rows": metric_rows,
         "summary": summarize_ragas_rows(metric_rows),
         "fields": sorted(records[0]) if records else [],
@@ -422,7 +408,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"evaluation setup failed ({type(exc).__name__}); no result files written", file=sys.stderr)
         return 2
     rows = _run_cases(cases, {row["chunk_id"]: row for row in chunks}, graph)
-    deterministic = score_cases(cases, rows)
+    scored = score_cases(cases, rows)
+    deterministic = {
+        key: scored[key]
+        for key in ("case_count", "retrieval", "latency", "timestamp_utc")
+    }
     metadata = {
         "timestamp_utc": datetime.now(UTC).isoformat(),
         "dataset": str(args.dataset),
@@ -441,22 +431,21 @@ def main(argv: list[str] | None = None) -> int:
         },
         "limitations": {"judge_model_self_evaluation": True},
         "metric_definitions": {
-            "accuracy": "Mean Ragas Answer Correctness over finite metric scores.",
             "unsupported_claim_rate": (
                 "1 minus mean Ragas Faithfulness over finite metric scores; proxy for unsupported content."
             ),
             "cases_with_unsupported_claim_rate": (
                 "Fraction of finite Faithfulness cases with score below 1.0."
             ),
-            "context_precision": "Ragas LLMContextPrecisionWithReference mean over finite scores.",
-            "context_recall": "Ragas LLMContextRecall mean over finite scores.",
-            "faithfulness": "Ragas Faithfulness mean over finite scores.",
-            "answer_relevancy": "Ragas ResponseRelevancy mean over finite scores.",
-            "answer_correctness": "Ragas AnswerCorrectness mean over finite scores.",
-            "citation_validity": (
-                "Fraction of emitted citation IDs that appear among retrieved IDs; this does not "
-                "measure citation coverage or completeness."
-            )
+            "faithfulness": (
+                "Ragas Faithfulness mean over finite scores for cases with expected_status=answered "
+                "and non-empty reference_context_ids."
+            ),
+            "retrieval": (
+                "Macro ID-based Recall@K (relevant retrieved / all relevant) and Precision@K "
+                "(relevant retrieved / K), at K=1,3,5; cases without annotated "
+                "relevant contexts are excluded."
+            ),
         },
     }
     ragas_result = None

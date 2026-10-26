@@ -18,6 +18,7 @@ from vietravel_rag.evaluation.metrics import (
     forbidden_claim_rate,
     latency_summary,
     numeric_grounding_rate,
+    retrieval_precision_recall_at_k,
     score_cases,
 )
 
@@ -175,7 +176,7 @@ def test_dataset_validation_reports_unknown_chunk_ids():
 
 def test_ragas_adapter_preserves_context_ids_and_standard_fields():
     records = ragas_records(
-        [{"reference": "reference text"}],
+        [{"case_id": "case-1", "reference": "reference text"}],
         [
             {
                 "user_input": "question",
@@ -187,6 +188,7 @@ def test_ragas_adapter_preserves_context_ids_and_standard_fields():
         ],
     )
     assert records[0] == {
+        "case_id": "case-1",
         "user_input": "question",
         "retrieved_contexts": ["chunk text"],
         "reference_contexts": ["reference chunk"],
@@ -214,13 +216,12 @@ def test_ragas_summary_uses_only_finite_scores_and_reports_hallucination_rates()
         },
     ]
     summary = summarize_ragas_rows(rows)
-    assert summary["metrics"]["context_precision"] == {
+    assert summary["metrics"]["faithfulness"] == {
         "finite_cases": 2,
         "total_cases": 2,
-        "mean": 0.7,
+        "mean": 0.75,
     }
-    assert summary["metrics"]["context_recall"]["finite_cases"] == 1
-    assert summary["report_metrics"]["accuracy"] == 0.8
+    assert list(summary["metrics"]) == ["faithfulness"]
     assert summary["report_metrics"]["unsupported_claim_rate"] == 0.25
     assert summary["report_metrics"]["cases_with_unsupported_claim_rate"] == 0.5
 
@@ -239,10 +240,27 @@ def test_ragas_summary_excludes_nan_and_infinity_from_finite_counts():
     )
     assert all(metric["finite_cases"] == 0 for metric in summary["metrics"].values())
     assert summary["report_metrics"] == {
-        "accuracy": None,
         "unsupported_claim_rate": None,
         "cases_with_unsupported_claim_rate": None,
     }
+
+
+def test_retrieval_precision_recall_excludes_cases_without_targets_and_deduplicates_hits():
+    cases = [
+        {"reference_context_ids": ["a", "b"]},
+        {"reference_context_ids": []},
+    ]
+    results = [
+        {"retrieved_context_ids": ["a", "a", "unrelated", "b"]},
+        {"retrieved_context_ids": ["unrelated"]},
+    ]
+
+    summary = retrieval_precision_recall_at_k(cases, results, cutoffs=(1, 3))
+
+    assert summary["eligible_cases"] == 1
+    assert summary["excluded_cases_without_relevant_context"] == 1
+    assert summary["by_k"]["1"] == {"recall": 0.5, "precision": 1.0, "cases": 1}
+    assert summary["by_k"]["3"] == {"recall": 1.0, "precision": 0.666667, "cases": 1}
 
 
 def test_json_writer_recursively_sanitizes_non_finite_ragas_scores(tmp_path):
