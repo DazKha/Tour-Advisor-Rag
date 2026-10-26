@@ -133,7 +133,7 @@ Start a fresh chat for prompt 3 so it has no selected tour. Use the prompts in o
 4. `Hành lý ký gửi của tour Đà Nẵng quy định ra sao?` — show both conflicting source claims and citations, then recommend confirmation.
 5. `Tour Bangkok – Pattaya hôm nay còn chỗ không?` — explain that live availability cannot be confirmed and direct the customer to staff.
 
-Answers show status and source expanders. The debug view is restricted to retrieved chunks and an allowlist of citation metadata.
+The Streamlit chat now opens with intent-based question shortcuts and adapts follow-up prompts to the active tour. Answers show PDF source expanders; statuses appear prominently when clarification or staff confirmation is needed. Technical citation metadata stays inside a separate “Chi tiết demo” disclosure. Use “Cuộc trò chuyện mới” before prompt 3 to clear the selected tour and rotate the graph thread.
 
 ## Streamlit Community Cloud
 
